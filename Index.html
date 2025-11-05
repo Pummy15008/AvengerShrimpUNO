@@ -3,10 +3,12 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>CP | Shrimp Bidding Helper (No Decimals / No Notes)</title>
+  <title>CP | Shrimp Bidding Helper (Excel/CSV Import, No Decimals)</title>
+  <!-- SheetJS (อ่านไฟล์ Excel ฝั่งเบราว์เซอร์) -->
+  https://cdn.jsdelivr.net/npm/xlsx@0.21.0/dist/xlsx.full.min.js</script>
   <style>
     :root{ --bg:#f7fafc; --panel:#ffffff; --text:#0f172a; --line:#e5e7eb; --primary:#0ea5e9; --good:#16a34a; --bad:#ef4444; }
-    *{box-sizing:border-box} 
+    *{box-sizing:border-box}
     body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,TH Sarabun New,Prompt,sans-serif;background:var(--bg);color:var(--text)}
     .app{max-width:1200px;margin:0 auto;padding:16px}
     header{display:flex;align-items:center;gap:12px;padding:4px 0 12px 0;flex-wrap:wrap}
@@ -35,6 +37,7 @@
     .profit{font-weight:600}
     input[type=number]{width:100%;padding:12px;border-radius:10px;border:1px solid var(--line);background:#fff;color:#0f172a;font-size:16px}
     @media (min-width: 900px){ .tbl-wrap{display:block} .cards{display:none} }
+    .importer{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
   </style>
 </head>
 <body>
@@ -49,9 +52,11 @@
         </svg>
       </div>
       <h1>ตัวช่วยคำนวณกำไร/กก. (Bidding)</h1>
-      <div class="toolbar">
+      <div class="toolbar importer">
+        <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" />
+        <button id="parseFile" class="primary">นำเข้า Excel/CSV</button>
         <button id="resetAll">ล้างค่า</button>
-        <button id="exportCSV" class="primary">ส่งออก CSV</button>
+        <button id="exportCSV">ส่งออก CSV</button>
         <button id="sortCards">เรียงการ์ดตามกำไร</button>
       </div>
     </header>
@@ -78,22 +83,8 @@
   </div>
 
 <script>
-/** ====== CONFIG ====== 
- * แทรกค่าคงที่ SG&A + LG และ Margin W2 ต่อไซซ์จากเทมเพลต (ปรับตามจริงถ้าจำเป็น)
- * หมายเหตุ: หากคุณจะโหลดค่าเหล่านี้จากไฟล์/บริการภายนอก ให้ดัดแปลงส่วน DATA นี้
- */
-const DATA = {config:{sizes: [
-  {"size":"STD Jumbo","sga_lg":21.71,"margin_w2":12,"last_cost":286},
-  {"size":"STD 4XL","sga_lg":20.96,"margin_w2":12,"last_cost":252},
-  {"size":"STD 3XL","sga_lg":20.80,"margin_w2":11,"last_cost":235},
-  {"size":"STD 2XL+","sga_lg":20.66,"margin_w2":9,"last_cost":218},
-  {"size":"STD 2XL","sga_lg":20.48,"margin_w2":10,"last_cost":212},
-  {"size":"STD XL","sga_lg":19.82,"margin_w2":8,"last_cost":187},
-  {"size":"STD LL","sga_lg":19.57,"margin_w2":8,"last_cost":177},
-  {"size":"STD L","sga_lg":19.23,"margin_w2":8,"last_cost":164},
-  {"size":"STD M","sga_lg":18.79,"margin_w2":7,"last_cost":151},
-  {"size":"STD S","sga_lg":18.38,"margin_w2":6,"last_cost":136}
-]}};
+/** ====== DEFAULT (ว่าง) — จะถูกแทนที่เมื่อ import ====== */
+const DATA = {config:{sizes: []}};
 
 /** ====== STORAGE KEYS ====== */
 const KEY_COSTS='shrimp_costs_v1';
@@ -106,7 +97,8 @@ let bids  = JSON.parse(localStorage.getItem(KEY_BIDS) || '{}');
 /** ====== UTIL (จำนวนเต็ม) ====== */
 const fmt0 = n => (n===null||n===undefined||isNaN(n))?'-':String(Math.round(Number(n)));   // ไม่มีคอมมา/ทศนิยม
 const toNum0 = v => { const x = parseFloat(v); return isFinite(x)? Math.round(x) : NaN; };
-const bySize = new Map(DATA.config.sizes.map(s=>[s.size,s]));
+const bySize = () => new Map(DATA.config.sizes.map(s=>[s.size,s]));
+const normalizeHeader = h => (h||'').replace(/\r?\n/g,' ').trim();
 
 /** ====== CORE CALC ====== */
 function calc(cfg){
@@ -115,7 +107,7 @@ function calc(cfg){
   const floor = (isFinite(cost)?cost:NaN) + cfg.sga_lg;
   const w2 = floor + cfg.margin_w2;
   const pW2 = w2 - floor;         // = margin_w2
-  const bid = (bids[size] ?? NaN);
+  const bid = (bids[size] ?? (cfg.last_bid ?? NaN));
   const pBid = isFinite(bid)? (bid - floor) : NaN;
   return {size,cost,w2,pW2,bid,pBid};
 }
@@ -168,6 +160,7 @@ function buildCards(){
   const wrap = document.getElementById('cards');
   if(!wrap) return;
   wrap.innerHTML='';
+  const map = bySize();
   DATA.config.sizes.forEach(cfg=>{
     const r = calc(cfg);
     const card = document.createElement('div'); card.className='item'; card.id='card_'+r.size.replace(/\s+/g,'_');
@@ -180,23 +173,23 @@ function buildCards(){
     const fields = document.createElement('div'); fields.className='fields';
 
     const fCost = document.createElement('div'); fCost.className='field';
-    fCost.innerHTML = `<div class='label'>ราคาทุน</div><input type='number' step='1' inputmode='numeric' value='${isFinite(r.cost)?Math.round(r.cost):''}'>`; 
+    fCost.innerHTML = `<div class='label'>ราคาทุน</div><input type='number' step='1' inputmode='numeric' value='${isFinite(r.cost)?Math.round(r.cost):''}'>`;
     fields.appendChild(fCost);
 
     const fW2 = document.createElement('div'); fW2.className='field';
-    fW2.innerHTML = `<div class='label'>ราคา W2</div><div class='val' id='W2_${r.size}'>${fmt0(r.w2)}</div>`; 
+    fW2.innerHTML = `<div class='label'>ราคา W2</div><div class='val' id='W2_${r.size}'>${fmt0(r.w2)}</div>`;
     fields.appendChild(fW2);
 
     const fPW2 = document.createElement('div'); fPW2.className='field';
-    fPW2.innerHTML = `<div class='label'>กำไร/กก. (W2)</div><div class='val' id='PW2_${r.size}'>${fmt0(r.pW2)}</div>`; 
+    fPW2.innerHTML = `<div class='label'>กำไร/กก. (W2)</div><div class='val' id='PW2_${r.size}'>${fmt0(r.pW2)}</div>`;
     fields.appendChild(fPW2);
 
     const fBid = document.createElement('div'); fBid.className='field';
-    fBid.innerHTML = `<div class='label'>ราคา Bidding</div><input type='number' step='1' inputmode='numeric' value='${isFinite(r.bid)?Math.round(r.bid):''}'>`; 
+    fBid.innerHTML = `<div class='label'>ราคา Bidding</div><input type='number' step='1' inputmode='numeric' value='${isFinite(r.bid)?Math.round(r.bid):''}'>`;
     fields.appendChild(fBid);
 
     const fPBid = document.createElement('div'); fPBid.className='field';
-    fPBid.innerHTML = `<div class='label'>กำไร/กก. (Bidding)</div><div class='val' id='PBID_${r.size}'>${fmt0(r.pBid)}</div>`; 
+    fPBid.innerHTML = `<div class='label'>กำไร/กก. (Bidding)</div><div class='val' id='PBID_${r.size}'>${fmt0(r.pBid)}</div>`;
     fields.appendChild(fPBid);
 
     card.appendChild(fields);
@@ -207,7 +200,7 @@ function buildCards(){
     cInput.addEventListener('input',()=>{
       if(cInput.value===''){ delete costs[r.size]; } else { costs[r.size]=toNum0(cInput.value); }
       localStorage.setItem(KEY_COSTS, JSON.stringify(costs));
-      const rr = calc(bySize.get(r.size));
+      const rr = calc(map.get(r.size));
       card.querySelector('#W2_'+r.size).textContent = fmt0(rr.w2);
       card.querySelector('#PW2_'+r.size).textContent = fmt0(rr.pW2);
       const pEl = card.querySelector('#PBID_'+r.size);
@@ -221,7 +214,7 @@ function buildCards(){
     bInput.addEventListener('input',()=>{
       if(bInput.value===''){ delete bids[r.size]; } else { bids[r.size]=toNum0(bInput.value); }
       localStorage.setItem(KEY_BIDS, JSON.stringify(bids));
-      const rr = calc(bySize.get(r.size));
+      const rr = calc(map.get(r.size));
       const pEl = card.querySelector('#PBID_'+r.size);
       pEl.textContent = fmt0(rr.pBid);
       profitEl.textContent = fmt0(rr.pBid);
@@ -281,11 +274,91 @@ function sortCards(){
   wrap.innerHTML=''; newOrder.forEach(el=>wrap.appendChild(el));
 }
 
+/** ====== IMPORT: Excel/CSV ====== 
+ * รองรับไฟล์: .xlsx/.xls และ .csv
+ * คอลัมน์ที่ใช้: Size, ราคาทุน, SG&A + LG, Margin W2, ราคา Bidding(ถ้ามี)
+ */
+function parseFile(){
+  const file = document.getElementById('fileInput').files[0];
+  if(!file){ alert('โปรดเลือกไฟล์ Excel/CSV ก่อน'); return; }
+
+  const ext = (file.name.split('.').pop() || '').toLowerCase();
+  const reader = new FileReader();
+
+  if(ext === 'csv'){
+    reader.onload = e => parseCSVText(e.target.result);
+    reader.readAsText(file, 'utf-8');
+  }else{
+    reader.onload = e => {
+      const data = new Uint8Array(e.target.result);
+      const wb = XLSX.read(data, {type:'array', cellText:false, cellDates:true});
+      const firstSheetName = wb.SheetNames[0];
+      const ws = wb.Sheets[firstSheetName];
+      const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:''}); // array of arrays
+      parseArrayRows(rows);
+    };
+    reader.readAsArrayBuffer(file);
+  }
+}
+
+function parseCSVText(text){
+  const lines = text.split(/\r?\n/).filter(x=>x.trim().length>0);
+  const rows = lines.map(line => line.split(',').map(s=>s.trim()));
+  parseArrayRows(rows);
+}
+
+function parseArrayRows(rows){
+  if(!rows || rows.length<2){ alert('ไฟล์ไม่มีข้อมูลเพียงพอ'); return; }
+  const headers = rows[0].map(normalizeHeader);
+  const idx = {
+    size: headers.findIndex(h => h === 'Size'),
+    cost: headers.findIndex(h => h === 'ราคาทุน'),
+    sga : headers.findIndex(h => h === 'SG&A + LG' || h === 'SG&A+LG'),
+    mw2 : headers.findIndex(h => h === 'Margin W2'),
+    bid : headers.findIndex(h => h === 'ราคา Bidding')
+  };
+  if(idx.size===-1 || idx.sga===-1 || idx.mw2===-1){
+    alert('ต้องมีคอลัมน์อย่างน้อย: Size, SG&A + LG, Margin W2 (ราคาทุน/ราคา Bidding ไม่บังคับ)');
+    return;
+  }
+
+  const sizes = [];
+  for(let i=1;i<rows.length;i++){
+    const row = rows[i];
+    const size = String(row[idx.size]||'').trim();
+    if(!size || !/^STD/i.test(size)) continue; // รับเฉพาะที่ขึ้นต้น STD ตามเทมเพลต
+    const sga  = parseFloat(String(row[idx.sga]||'').replace(/,/g,'')); 
+    const mw2  = parseFloat(String(row[idx.mw2]||'').replace(/,/g,'')); 
+    const cost = (idx.cost>-1)? parseFloat(String(row[idx.cost]||'').replace(/,/g,'')) : NaN;
+    const bid  = (idx.bid>-1)?  parseFloat(String(row[idx.bid]||'').replace(/,/g,''))  : NaN;
+
+    sizes.push({
+      size,
+      sga_lg: isFinite(sga)? sga : 0,
+      margin_w2: isFinite(mw2)? mw2 : 0,
+      last_cost: isFinite(cost)? cost : undefined,
+      last_bid : isFinite(bid)?  bid  : undefined
+    });
+  }
+
+  // ใส่ข้อมูลเข้าระบบ
+  DATA.config.sizes = sizes;
+  // เคลียร์ state (ถ้าอยากเริ่มจากไฟล์ใหม่ทุกครั้ง)
+  // localStorage.removeItem(KEY_COSTS); localStorage.removeItem(KEY_BIDS);
+  // costs = {}; bids = {};
+
+  buildTable();
+  buildCards();
+  alert('นำเข้าข้อมูลสำเร็จ: ' + sizes.length + ' ไซซ์');
+}
+
 /** ====== INIT ====== */
 document.getElementById('exportCSV').addEventListener('click', exportCSV);
 document.getElementById('resetAll').addEventListener('click', resetAll);
 document.getElementById('sortCards').addEventListener('click', sortCards);
+document.getElementById('parseFile').addEventListener('click', parseFile);
 
+// เริ่มด้วยหน้าว่าง (รอ import)
 buildTable();
 buildCards();
 </script>
