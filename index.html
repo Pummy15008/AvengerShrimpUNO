@@ -20,7 +20,7 @@
     .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px}
     .tbl-wrap{display:none}
     table{width:100%;border-collapse:separate;border-spacing:0}
-    th,td{padding:12px;border-bottom:1px solid var(--line);text-align:right; vertical-align:middle}
+    th,td{padding:12px;border-bottom:1px solid var(--line);text-align:right;vertical-align:middle}
     th{background:#f3f4f6;color:#374151;position:sticky;top:0}
     td:first-child, th:first-child{text-align:left}
     td input{width:140px;padding:10px;border-radius:10px;border:1px solid var(--line);background:#fff;color:var(--text)}
@@ -103,17 +103,15 @@ let costs = JSON.parse(localStorage.getItem(KEY_COSTS) || '{}');
 let bids  = JSON.parse(localStorage.getItem(KEY_BIDS) || '{}');
 
 /** ====== utils: จำนวนเต็มและคีย์บอร์ดมือถือ ====== */
-// กรองให้เหลือเฉพาะ 0-9 และเครื่องหมายลบ (ถ้าจำเป็น)
 const toNum0 = v => {
-  const s = String(v ?? '').replace(/[^0-9-]/g, ''); // ตัด , . space e ฯลฯ ออก
+  const s = String(v ?? '').replace(/[^0-9-]/g, ''); // กรองทุกอย่างที่ไม่ใช่ตัวเลข/ลบ
   if (!s) return NaN;
   const n = parseInt(s, 10);
   return Number.isFinite(n) ? n : NaN;
 };
 const fmt0 = n => (n===null||n===undefined||isNaN(n))?'-':String(Math.round(Number(n)));
-const bySize = new Map(DATA.config.sizes.map(s=>[s.size,s]));
 
-/** ====== calc core ====== */
+/** ====== core calc ====== */
 function calc(cfg){
   const size = cfg.size;
   const cost = Number.isFinite(costs[size]) ? costs[size]
@@ -131,7 +129,31 @@ function calc(cfg){
   return {size,cost,w2,pW2,bid,pBid};
 }
 
-/** ====== desktop table (with per-row calculate button) ====== */
+/** ====== คำนวณทันทีเมื่อกดปุ่ม — Desktop ====== */
+function calculateRow(cfg, rowRefs){
+  const {costInput, bidInput, cW2, cPW2, cPBID} = rowRefs;
+
+  const costVal = costInput.value.trim();
+  const bidVal  = bidInput.value.trim();
+
+  // อัปเดต state จากอินพุตสด ๆ
+  if(costVal===''){ delete costs[cfg.size]; } else { costs[cfg.size] = toNum0(costVal); }
+  if(bidVal===''){ delete bids[cfg.size]; } else { bids[cfg.size]  = toNum0(bidVal); }
+  localStorage.setItem(KEY_COSTS, JSON.stringify(costs));
+  localStorage.setItem(KEY_BIDS,  JSON.stringify(bids));
+
+  // คำนวณและแสดงผลทันที (ไม่รีเฟรช ไม่ rebuild ทั้งตาราง)
+  const r = calc(cfg);
+  cW2.textContent   = fmt0(r.w2);
+  cPW2.textContent  = fmt0(r.pW2);
+  cPBID.textContent = fmt0(r.pBid);
+  cPBID.style.color = Number.isFinite(r.pBid) ? (r.pBid>=0?'var(--good)':'var(--bad)') : 'inherit';
+
+  // sync การ์ด
+  updateCard(r);
+}
+
+/** ====== Table view ====== */
 function buildTable(){
   const tbody = document.querySelector('#tbl tbody'); if(!tbody) return;
   tbody.innerHTML='';
@@ -140,52 +162,77 @@ function buildTable(){
     const tr = document.createElement('tr');
 
     const c0 = document.createElement('td'); c0.textContent = r.size; tr.appendChild(c0);
+
     const c1 = document.createElement('td');
-      c1.innerHTML = `<input type="tel" inputmode="numeric" pattern="[0-9]*" value="${Number.isFinite(r.cost)?Math.round(r.cost):''}" aria-label="ราคาทุน">`;
-      tr.appendChild(c1);
-    const c2 = document.createElement('td'); c2.textContent = fmt0(r.w2); tr.appendChild(c2);
+    c1.innerHTML = `<input type="tel" inputmode="numeric" pattern="[0-9]*" value="${Number.isFinite(r.cost)?Math.round(r.cost):''}" aria-label="ราคาทุน">`;
+    tr.appendChild(c1);
+
+    const c2 = document.createElement('td'); c2.textContent = fmt0(r.w2);  tr.appendChild(c2);
     const c3 = document.createElement('td'); c3.textContent = fmt0(r.pW2); tr.appendChild(c3);
+
     const c4 = document.createElement('td');
-      c4.innerHTML = `<input type="tel" inputmode="numeric" pattern="[0-9]*" value="${Number.isFinite(r.bid)?Math.round(r.bid):''}" aria-label="ราคา Bidding">`;
-      tr.appendChild(c4);
-    const c5 = document.createElement('td'); c5.textContent = fmt0(r.pBid); c5.style.color = Number.isFinite(r.pBid)? (r.pBid>=0?'var(--good)':'var(--bad)') : 'inherit'; tr.appendChild(c5);
+    c4.innerHTML = `<input type="tel" inputmode="numeric" pattern="[0-9]*" value="${Number.isFinite(r.bid)?Math.round(r.bid):''}" aria-label="ราคา Bidding">`;
+    tr.appendChild(c4);
+
+    const c5 = document.createElement('td'); c5.textContent = fmt0(r.pBid);
+    c5.style.color = Number.isFinite(r.pBid)? (r.pBid>=0?'var(--good)':'var(--bad)') : 'inherit';
+    tr.appendChild(c5);
 
     const c6 = document.createElement('td');
-      c6.className = 'actions';
-      c6.innerHTML = `<button class="primary" aria-label="คำนวณ">คำนวณ</button>`;
-      tr.appendChild(c6);
+    c6.className = 'actions';
+    c6.innerHTML = `<button class="primary" type="button" aria-label="คำนวณ">คำนวณ</button>`;
+    tr.appendChild(c6);
 
     const costInput = c1.querySelector('input');
     const bidInput  = c4.querySelector('input');
     const calcBtn   = c6.querySelector('button');
 
-    // บันทึกค่า (ไม่คำนวณทันที) — คำนวณเมื่อกดปุ่ม
+    // บันทึกค่าเฉย ๆ ระหว่างพิมพ์ (ไม่คำนวณ)
     ['input','change','keyup','blur'].forEach(ev=>{
       costInput.addEventListener(ev, ()=>{
-        if(costInput.value===''){ delete costs[r.size]; } else { costs[r.size]=toNum0(costInput.value); }
+        if(costInput.value===''){ delete costs[cfg.size]; } else { costs[cfg.size]=toNum0(costInput.value); }
         localStorage.setItem(KEY_COSTS, JSON.stringify(costs));
       });
       bidInput.addEventListener(ev, ()=>{
-        if(bidInput.value===''){ delete bids[r.size]; } else { bids[r.size]=toNum0(bidInput.value); }
+        if(bidInput.value===''){ delete bids[cfg.size]; } else { bids[cfg.size]=toNum0(bidInput.value); }
         localStorage.setItem(KEY_BIDS, JSON.stringify(bids));
       });
     });
 
-    // คำนวณเมื่อกดปุ่ม
+    // ✅ คำนวณทันทีเมื่อคลิก
     calcBtn.addEventListener('click', ()=>{
-      const rr = calc(cfg);
-      c2.textContent = fmt0(rr.w2);
-      c3.textContent = fmt0(rr.pW2);
-      c5.textContent = fmt0(rr.pBid);
-      c5.style.color = Number.isFinite(rr.pBid)? (rr.pBid>=0?'var(--good)':'var(--bad)') : 'inherit';
-      updateCard(rr); // sync card
+      calculateRow(cfg, {costInput, bidInput, cW2:c2, cPW2:c3, cPBID:c5});
     });
 
     tbody.appendChild(tr);
   });
 }
 
-/** ====== mobile cards (with per-card calculate button) ====== */
+/** ====== คำนวณทันทีเมื่อกดปุ่ม — Mobile card ====== */
+function calculateCard(cfg, cardRefs){
+  const {costInput, bidInput, w2El, pw2El, pBidEl, profitEl} = cardRefs;
+
+  const costVal = costInput.value.trim();
+  const bidVal  = bidInput.value.trim();
+
+  if(costVal===''){ delete costs[cfg.size]; } else { costs[cfg.size] = toNum0(costVal); }
+  if(bidVal===''){ delete bids[cfg.size]; } else { bids[cfg.size]  = toNum0(bidVal); }
+  localStorage.setItem(KEY_COSTS, JSON.stringify(costs));
+  localStorage.setItem(KEY_BIDS,  JSON.stringify(bids));
+
+  const r = calc(cfg);
+  w2El.textContent   = fmt0(r.w2);
+  pw2El.textContent  = fmt0(r.pW2);
+  pBidEl.textContent = fmt0(r.pBid);
+  profitEl.textContent = fmt0(r.pBid);
+  const color = Number.isFinite(r.pBid)? (r.pBid>=0?'var(--good)':'var(--bad)') : '#4b5563';
+  pBidEl.style.color = color; profitEl.style.color = color;
+
+  // sync ตาราง
+  updateCard(r);
+}
+
+/** ====== Card view ====== */
 function buildCards(){
   const wrap = document.getElementById('cards'); if(!wrap) return;
   wrap.innerHTML='';
@@ -222,40 +269,34 @@ function buildCards(){
     fPBid.innerHTML = `<div class='label'>กำไร/กก. (Bidding)</div><div class='val' id='PBID_${r.size}'>${fmt0(r.pBid)}</div>`;
     fields.appendChild(fPBid);
 
-    // ปุ่มคำนวณบนการ์ด
     const fActions = document.createElement('div'); fActions.className='field actions';
-    fActions.innerHTML = `<button class="primary" aria-label="คำนวณ-การ์ด">คำนวณ</button>`;
+    fActions.innerHTML = `<button class="primary" type="button" aria-label="คำนวณ-การ์ด">คำนวณ</button>`;
     fields.appendChild(fActions);
 
     card.appendChild(fields);
 
-    const cInput = fCost.querySelector('input');
-    const bInput = fBid.querySelector('input');
-    const calcBtn = fActions.querySelector('button');
+    const costInput = fCost.querySelector('input');
+    const bidInput  = fBid.querySelector('input');
+    const calcBtn   = fActions.querySelector('button');
+    const w2El      = card.querySelector('#W2_'+r.size);
+    const pw2El     = card.querySelector('#PW2_'+r.size);
+    const pBidEl    = card.querySelector('#PBID_'+r.size);
 
-    // บันทึกค่า (ไม่คำนวณทันที)
+    // เก็บค่าไว้เฉย ๆ ระหว่างพิมพ์
     ['input','change','keyup','blur'].forEach(ev=>{
-      cInput.addEventListener(ev, ()=>{
-        if(cInput.value===''){ delete costs[r.size]; } else { costs[r.size]=toNum0(cInput.value); }
+      costInput.addEventListener(ev, ()=>{
+        if(costInput.value===''){ delete costs[cfg.size]; } else { costs[cfg.size]=toNum0(costInput.value); }
         localStorage.setItem(KEY_COSTS, JSON.stringify(costs));
       });
-      bInput.addEventListener(ev, ()=>{
-        if(bInput.value===''){ delete bids[r.size]; } else { bids[r.size]=toNum0(bInput.value); }
+      bidInput.addEventListener(ev, ()=>{
+        if(bidInput.value===''){ delete bids[cfg.size]; } else { bids[cfg.size]=toNum0(bidInput.value); }
         localStorage.setItem(KEY_BIDS, JSON.stringify(bids));
       });
     });
 
-    // คำนวณเมื่อกดปุ่ม
+    // ✅ กดแล้วคำนวณทันที (ไม่ต้องรีเฟรช)
     calcBtn.addEventListener('click', ()=>{
-      const rr = calc(bySize.get(r.size));
-      card.querySelector('#W2_'+r.size).textContent = fmt0(rr.w2);
-      card.querySelector('#PW2_'+r.size).textContent = fmt0(rr.pW2);
-      const pEl = card.querySelector('#PBID_'+r.size);
-      pEl.textContent = fmt0(rr.pBid);
-      profitEl.textContent = fmt0(rr.pBid);
-      const color = Number.isFinite(rr.pBid)? (rr.pBid>=0?'var(--good)':'var(--bad)') : '#4b5563';
-      pEl.style.color = color; profitEl.style.color = color;
-      buildTable(); // sync desktop
+      calculateCard(cfg, {costInput, bidInput, w2El, pw2El, pBidEl, profitEl});
     });
 
     wrap.appendChild(card);
