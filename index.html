@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>CP | Shrimp Bidding Helper (No Decimals)</title>
+  <title>CP | Shrimp Bidding Helper (Calculate per Size)</title>
   <style>
     :root{ --bg:#f7fafc; --panel:#ffffff; --text:#0f172a; --line:#e5e7eb; --primary:#0ea5e9; --good:#16a34a; --bad:#ef4444; }
     *{box-sizing:border-box}
@@ -20,7 +20,7 @@
     .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px}
     .tbl-wrap{display:none}
     table{width:100%;border-collapse:separate;border-spacing:0}
-    th,td{padding:12px;border-bottom:1px solid var(--line);text-align:right}
+    th,td{padding:12px;border-bottom:1px solid var(--line);text-align:right; vertical-align:middle}
     th{background:#f3f4f6;color:#374151;position:sticky;top:0}
     td:first-child, th:first-child{text-align:left}
     td input{width:140px;padding:10px;border-radius:10px;border:1px solid var(--line);background:#fff;color:var(--text)}
@@ -34,6 +34,7 @@
     .val{font-size:16px}
     .profit{font-weight:600}
     input[type=tel]{width:100%;padding:12px;border-radius:10px;border:1px solid var(--line);background:#fff;color:#0f172a;font-size:16px}
+    .actions{display:flex;gap:8px;align-items:center}
     @media (min-width: 900px){ .tbl-wrap{display:block} .cards{display:none} }
   </style>
 </head>
@@ -67,6 +68,7 @@
             <th>กำไร/กก. (W2)</th>
             <th>ราคา Bidding</th>
             <th>กำไร/กก. (Bidding)</th>
+            <th>การทำงาน</th>
           </tr>
         </thead>
         <tbody></tbody>
@@ -110,7 +112,6 @@ const toNum0 = v => {
 };
 const fmt0 = n => (n===null||n===undefined||isNaN(n))?'-':String(Math.round(Number(n)));
 const bySize = new Map(DATA.config.sizes.map(s=>[s.size,s]));
-const bindInputEvents = (el, handler)=>['input','change','keyup','blur'].forEach(ev=>el.addEventListener(ev, handler));
 
 /** ====== calc core ====== */
 function calc(cfg){
@@ -130,7 +131,7 @@ function calc(cfg){
   return {size,cost,w2,pW2,bid,pBid};
 }
 
-/** ====== desktop table ====== */
+/** ====== desktop table (with per-row calculate button) ====== */
 function buildTable(){
   const tbody = document.querySelector('#tbl tbody'); if(!tbody) return;
   tbody.innerHTML='';
@@ -139,41 +140,52 @@ function buildTable(){
     const tr = document.createElement('tr');
 
     const c0 = document.createElement('td'); c0.textContent = r.size; tr.appendChild(c0);
-    // ใช้ type="tel" + inputmode="numeric" ให้คีย์บอร์ดมือถือเป็นตัวเลข
-    const c1 = document.createElement('td'); c1.innerHTML = `<input type="tel" inputmode="numeric" pattern="[0-9]*" value="${Number.isFinite(r.cost)?Math.round(r.cost):''}">`; tr.appendChild(c1);
+    const c1 = document.createElement('td');
+      c1.innerHTML = `<input type="tel" inputmode="numeric" pattern="[0-9]*" value="${Number.isFinite(r.cost)?Math.round(r.cost):''}" aria-label="ราคาทุน">`;
+      tr.appendChild(c1);
     const c2 = document.createElement('td'); c2.textContent = fmt0(r.w2); tr.appendChild(c2);
     const c3 = document.createElement('td'); c3.textContent = fmt0(r.pW2); tr.appendChild(c3);
-    const c4 = document.createElement('td'); c4.innerHTML = `<input type="tel" inputmode="numeric" pattern="[0-9]*" value="${Number.isFinite(r.bid)?Math.round(r.bid):''}">`; tr.appendChild(c4);
+    const c4 = document.createElement('td');
+      c4.innerHTML = `<input type="tel" inputmode="numeric" pattern="[0-9]*" value="${Number.isFinite(r.bid)?Math.round(r.bid):''}" aria-label="ราคา Bidding">`;
+      tr.appendChild(c4);
     const c5 = document.createElement('td'); c5.textContent = fmt0(r.pBid); c5.style.color = Number.isFinite(r.pBid)? (r.pBid>=0?'var(--good)':'var(--bad)') : 'inherit'; tr.appendChild(c5);
+
+    const c6 = document.createElement('td');
+      c6.className = 'actions';
+      c6.innerHTML = `<button class="primary" aria-label="คำนวณ">คำนวณ</button>`;
+      tr.appendChild(c6);
 
     const costInput = c1.querySelector('input');
     const bidInput  = c4.querySelector('input');
+    const calcBtn   = c6.querySelector('button');
 
-    bindInputEvents(costInput, ()=>{
-      if(costInput.value===''){ delete costs[r.size]; } else { costs[r.size]=toNum0(costInput.value); }
-      localStorage.setItem(KEY_COSTS, JSON.stringify(costs));
+    // บันทึกค่า (ไม่คำนวณทันที) — คำนวณเมื่อกดปุ่ม
+    ['input','change','keyup','blur'].forEach(ev=>{
+      costInput.addEventListener(ev, ()=>{
+        if(costInput.value===''){ delete costs[r.size]; } else { costs[r.size]=toNum0(costInput.value); }
+        localStorage.setItem(KEY_COSTS, JSON.stringify(costs));
+      });
+      bidInput.addEventListener(ev, ()=>{
+        if(bidInput.value===''){ delete bids[r.size]; } else { bids[r.size]=toNum0(bidInput.value); }
+        localStorage.setItem(KEY_BIDS, JSON.stringify(bids));
+      });
+    });
+
+    // คำนวณเมื่อกดปุ่ม
+    calcBtn.addEventListener('click', ()=>{
       const rr = calc(cfg);
       c2.textContent = fmt0(rr.w2);
       c3.textContent = fmt0(rr.pW2);
       c5.textContent = fmt0(rr.pBid);
       c5.style.color = Number.isFinite(rr.pBid)? (rr.pBid>=0?'var(--good)':'var(--bad)') : 'inherit';
-      updateCard(rr);
-    });
-
-    bindInputEvents(bidInput, ()=>{
-      if(bidInput.value===''){ delete bids[r.size]; } else { bids[r.size]=toNum0(bidInput.value); }
-      localStorage.setItem(KEY_BIDS, JSON.stringify(bids));
-      const rr = calc(cfg);
-      c5.textContent = fmt0(rr.pBid);
-      c5.style.color = Number.isFinite(rr.pBid)? (rr.pBid>=0?'var(--good)':'var(--bad)') : 'inherit';
-      updateCard(rr);
+      updateCard(rr); // sync card
     });
 
     tbody.appendChild(tr);
   });
 }
 
-/** ====== mobile cards ====== */
+/** ====== mobile cards (with per-card calculate button) ====== */
 function buildCards(){
   const wrap = document.getElementById('cards'); if(!wrap) return;
   wrap.innerHTML='';
@@ -189,6 +201,7 @@ function buildCards(){
     card.appendChild(head);
 
     const fields = document.createElement('div'); fields.className='fields';
+
     const fCost = document.createElement('div'); fCost.className='field';
     fCost.innerHTML = `<div class='label'>ราคาทุน</div><input type='tel' inputmode='numeric' pattern='[0-9]*' value='${Number.isFinite(r.cost)?Math.round(r.cost):''}'>`;
     fields.appendChild(fCost);
@@ -209,29 +222,34 @@ function buildCards(){
     fPBid.innerHTML = `<div class='label'>กำไร/กก. (Bidding)</div><div class='val' id='PBID_${r.size}'>${fmt0(r.pBid)}</div>`;
     fields.appendChild(fPBid);
 
+    // ปุ่มคำนวณบนการ์ด
+    const fActions = document.createElement('div'); fActions.className='field actions';
+    fActions.innerHTML = `<button class="primary" aria-label="คำนวณ-การ์ด">คำนวณ</button>`;
+    fields.appendChild(fActions);
+
     card.appendChild(fields);
 
     const cInput = fCost.querySelector('input');
     const bInput = fBid.querySelector('input');
+    const calcBtn = fActions.querySelector('button');
 
-    bindInputEvents(cInput, ()=>{
-      if(cInput.value===''){ delete costs[r.size]; } else { costs[r.size]=toNum0(cInput.value); }
-      localStorage.setItem(KEY_COSTS, JSON.stringify(costs));
+    // บันทึกค่า (ไม่คำนวณทันที)
+    ['input','change','keyup','blur'].forEach(ev=>{
+      cInput.addEventListener(ev, ()=>{
+        if(cInput.value===''){ delete costs[r.size]; } else { costs[r.size]=toNum0(cInput.value); }
+        localStorage.setItem(KEY_COSTS, JSON.stringify(costs));
+      });
+      bInput.addEventListener(ev, ()=>{
+        if(bInput.value===''){ delete bids[r.size]; } else { bids[r.size]=toNum0(bInput.value); }
+        localStorage.setItem(KEY_BIDS, JSON.stringify(bids));
+      });
+    });
+
+    // คำนวณเมื่อกดปุ่ม
+    calcBtn.addEventListener('click', ()=>{
       const rr = calc(bySize.get(r.size));
       card.querySelector('#W2_'+r.size).textContent = fmt0(rr.w2);
       card.querySelector('#PW2_'+r.size).textContent = fmt0(rr.pW2);
-      const pEl = card.querySelector('#PBID_'+r.size);
-      pEl.textContent = fmt0(rr.pBid);
-      profitEl.textContent = fmt0(rr.pBid);
-      const color = Number.isFinite(rr.pBid)? (rr.pBid>=0?'var(--good)':'var(--bad)') : '#4b5563';
-      pEl.style.color = color; profitEl.style.color = color;
-      buildTable(); // sync desktop
-    });
-
-    bindInputEvents(bInput, ()=>{
-      if(bInput.value===''){ delete bids[r.size]; } else { bids[r.size]=toNum0(bInput.value); }
-      localStorage.setItem(KEY_BIDS, JSON.stringify(bids));
-      const rr = calc(bySize.get(r.size));
       const pEl = card.querySelector('#PBID_'+r.size);
       pEl.textContent = fmt0(rr.pBid);
       profitEl.textContent = fmt0(rr.pBid);
