@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>CP | Shrimp Bidding Helper (Calculate per Size)</title>
+  <title>CP | Shrimp Bidding Helper (Calculate per Size • Mobile Patched)</title>
   <style>
     :root{ --bg:#f7fafc; --panel:#ffffff; --text:#0f172a; --line:#e5e7eb; --primary:#0ea5e9; --good:#16a34a; --bad:#ef4444; }
     *{box-sizing:border-box}
@@ -80,7 +80,9 @@
   </div>
 
 <script>
-/** ====== DATA ค่าคงที่ต่อไซซ์ (แก้ตามจริงได้) ====== */
+/* =========================
+   DATA (ค่าคงที่ต่อไซซ์)
+   ========================= */
 const DATA = {config:{sizes:[
   {"size":"STD Jumbo","sga_lg":21.71,"margin_w2":12,"last_cost":286},
   {"size":"STD 4XL","sga_lg":20.96,"margin_w2":12,"last_cost":252},
@@ -94,66 +96,120 @@ const DATA = {config:{sizes:[
   {"size":"STD S","sga_lg":18.38,"margin_w2": 6,"last_cost":136}
 ]}};
 
-/** ====== storage keys ====== */
+/* =========================
+   STATE & UTILS
+   ========================= */
 const KEY_COSTS='shrimp_costs_v1';
 const KEY_BIDS='shrimp_bids_v1';
-
-/** ====== state ====== */
 let costs = JSON.parse(localStorage.getItem(KEY_COSTS) || '{}');
-let bids  = JSON.parse(localStorage.getItem(KEY_BIDS) || '{}');
+let bids  = JSON.parse(localStorage.getItem(KEY_BIDS)  || '{}');
 
-/** ====== utils: จำนวนเต็มและคีย์บอร์ดมือถือ ====== */
+// แปลงอินพุตเป็นจำนวนเต็ม (กรองทุกอย่างที่ไม่ใช่ 0-9/-)
 const toNum0 = v => {
-  const s = String(v ?? '').replace(/[^0-9-]/g, ''); // กรองทุกอย่างที่ไม่ใช่ตัวเลข/ลบ
+  const s = String(v ?? '').replace(/[^0-9-]/g, '');
   if (!s) return NaN;
   const n = parseInt(s, 10);
   return Number.isFinite(n) ? n : NaN;
 };
+// ฟอร์แมตให้เป็นจำนวนเต็ม/แสดง "-" เมื่อคำนวณไม่ได้
 const fmt0 = n => (n===null||n===undefined||isNaN(n))?'-':String(Math.round(Number(n)));
 
-/** ====== core calc ====== */
+// --- ฟังก์ชันช่วย: ให้คำนวณหลังคีย์บอร์ดมือถือคอมมิตค่าแล้ว ---
+function runAfterIMECommit(fn) {
+  setTimeout(fn, 0); // หรือใช้: requestAnimationFrame(fn)
+}
+// ผูกปุ่มให้ทำงานทั้ง click และ touchend (มือถือบางรุ่น)
+function bindCalcPress(el, handler) {
+  const wrapped = (ev) => {
+    ev.preventDefault();
+    ev.stopPropagation();
+    runAfterIMECommit(handler);
+  };
+  el.addEventListener('click', wrapped, {passive:false});
+  el.addEventListener('touchend', wrapped, {passive:false});
+}
+// ให้กด Enter ในช่องกรอกแล้วคำนวณไซซ์นั้นได้
+function bindEnterAsCalc(inputEl, pressFn) {
+  inputEl.addEventListener('keydown', (e)=>{
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      runAfterIMECommit(pressFn);
+    }
+  });
+}
+
+/* =========================
+   CORE CALC
+   ========================= */
 function calc(cfg){
-  const size = cfg.size;
-  const cost = Number.isFinite(costs[size]) ? costs[size]
-              : Number.isFinite(cfg.last_cost) ? cfg.last_cost
-              : NaN;
+  const size  = cfg.size;
+  const cost  = Number.isFinite(costs[size]) ? costs[size]
+                : Number.isFinite(cfg.last_cost) ? cfg.last_cost
+                : NaN;
   const floor = (Number.isFinite(cost) ? cost : NaN) + cfg.sga_lg;
   const w2    = Number.isFinite(floor) ? floor + cfg.margin_w2 : NaN;
   const pW2   = Number.isFinite(w2)&&Number.isFinite(floor) ? (w2 - floor) : NaN;
 
   const bid   = Number.isFinite(bids[size]) ? bids[size]
-               : Number.isFinite(cfg.last_bid) ? cfg.last_bid
-               : NaN;
+                : Number.isFinite(cfg.last_bid) ? cfg.last_bid
+                : NaN;
   const pBid  = (Number.isFinite(bid) && Number.isFinite(floor)) ? (bid - floor) : NaN;
 
   return {size,cost,w2,pW2,bid,pBid};
 }
 
-/** ====== คำนวณทันทีเมื่อกดปุ่ม — Desktop ====== */
+/* =========================
+   CALCULATE (per row / card)
+   ========================= */
+// Desktop row
 function calculateRow(cfg, rowRefs){
   const {costInput, bidInput, cW2, cPW2, cPBID} = rowRefs;
 
   const costVal = costInput.value.trim();
   const bidVal  = bidInput.value.trim();
 
-  // อัปเดต state จากอินพุตสด ๆ
   if(costVal===''){ delete costs[cfg.size]; } else { costs[cfg.size] = toNum0(costVal); }
-  if(bidVal===''){ delete bids[cfg.size]; } else { bids[cfg.size]  = toNum0(bidVal); }
+  if(bidVal===''){  delete bids[cfg.size];  } else { bids[cfg.size]  = toNum0(bidVal);  }
+
   localStorage.setItem(KEY_COSTS, JSON.stringify(costs));
   localStorage.setItem(KEY_BIDS,  JSON.stringify(bids));
 
-  // คำนวณและแสดงผลทันที (ไม่รีเฟรช ไม่ rebuild ทั้งตาราง)
   const r = calc(cfg);
   cW2.textContent   = fmt0(r.w2);
   cPW2.textContent  = fmt0(r.pW2);
   cPBID.textContent = fmt0(r.pBid);
-  cPBID.style.color = Number.isFinite(r.pBid) ? (r.pBid>=0?'var(--good)':'var(--bad)') : 'inherit';
+  cPBID.style.color = Number.isFinite(r.pBid)? (r.pBid>=0?'var(--good)':'var(--bad)') : 'inherit';
 
-  // sync การ์ด
-  updateCard(r);
+  updateCard(r); // sync card
 }
 
-/** ====== Table view ====== */
+// Mobile card
+function calculateCard(cfg, cardRefs){
+  const {costInput, bidInput, w2El, pw2El, pBidEl, profitEl} = cardRefs;
+
+  const costVal = costInput.value.trim();
+  const bidVal  = bidInput.value.trim();
+
+  if(costVal===''){ delete costs[cfg.size]; } else { costs[cfg.size] = toNum0(costVal); }
+  if(bidVal===''){  delete bids[cfg.size];  } else { bids[cfg.size]  = toNum0(bidVal);  }
+
+  localStorage.setItem(KEY_COSTS, JSON.stringify(costs));
+  localStorage.setItem(KEY_BIDS,  JSON.stringify(bids));
+
+  const r = calc(cfg);
+  w2El.textContent   = fmt0(r.w2);
+  pw2El.textContent  = fmt0(r.pW2);
+  pBidEl.textContent = fmt0(r.pBid);
+  profitEl.textContent = fmt0(r.pBid);
+  const color = Number.isFinite(r.pBid)? (r.pBid>=0?'var(--good)':'var(--bad)') : '#4b5563';
+  pBidEl.style.color = color; profitEl.style.color = color;
+
+  updateCard(r); // sync table
+}
+
+/* =========================
+   BUILD VIEWS
+   ========================= */
 function buildTable(){
   const tbody = document.querySelector('#tbl tbody'); if(!tbody) return;
   tbody.innerHTML='';
@@ -187,7 +243,7 @@ function buildTable(){
     const bidInput  = c4.querySelector('input');
     const calcBtn   = c6.querySelector('button');
 
-    // บันทึกค่าเฉย ๆ ระหว่างพิมพ์ (ไม่คำนวณ)
+    // เก็บค่าไว้ระหว่างพิมพ์ (ไม่คำนวณทันที)
     ['input','change','keyup','blur'].forEach(ev=>{
       costInput.addEventListener(ev, ()=>{
         if(costInput.value===''){ delete costs[cfg.size]; } else { costs[cfg.size]=toNum0(costInput.value); }
@@ -199,8 +255,15 @@ function buildTable(){
       });
     });
 
-    // ✅ คำนวณทันทีเมื่อคลิก
-    calcBtn.addEventListener('click', ()=>{
+    // กดปุ่ม/แตะหน้าจอ → คำนวณทันที (รองรับมือถือ)
+    bindCalcPress(calcBtn, ()=>{
+      calculateRow(cfg, {costInput, bidInput, cW2:c2, cPW2:c3, cPBID:c5});
+    });
+    // กด Enter ในช่อง → คำนวณทันที
+    bindEnterAsCalc(costInput, ()=>{
+      calculateRow(cfg, {costInput, bidInput, cW2:c2, cPW2:c3, cPBID:c5});
+    });
+    bindEnterAsCalc(bidInput, ()=>{
       calculateRow(cfg, {costInput, bidInput, cW2:c2, cPW2:c3, cPBID:c5});
     });
 
@@ -208,31 +271,6 @@ function buildTable(){
   });
 }
 
-/** ====== คำนวณทันทีเมื่อกดปุ่ม — Mobile card ====== */
-function calculateCard(cfg, cardRefs){
-  const {costInput, bidInput, w2El, pw2El, pBidEl, profitEl} = cardRefs;
-
-  const costVal = costInput.value.trim();
-  const bidVal  = bidInput.value.trim();
-
-  if(costVal===''){ delete costs[cfg.size]; } else { costs[cfg.size] = toNum0(costVal); }
-  if(bidVal===''){ delete bids[cfg.size]; } else { bids[cfg.size]  = toNum0(bidVal); }
-  localStorage.setItem(KEY_COSTS, JSON.stringify(costs));
-  localStorage.setItem(KEY_BIDS,  JSON.stringify(bids));
-
-  const r = calc(cfg);
-  w2El.textContent   = fmt0(r.w2);
-  pw2El.textContent  = fmt0(r.pW2);
-  pBidEl.textContent = fmt0(r.pBid);
-  profitEl.textContent = fmt0(r.pBid);
-  const color = Number.isFinite(r.pBid)? (r.pBid>=0?'var(--good)':'var(--bad)') : '#4b5563';
-  pBidEl.style.color = color; profitEl.style.color = color;
-
-  // sync ตาราง
-  updateCard(r);
-}
-
-/** ====== Card view ====== */
 function buildCards(){
   const wrap = document.getElementById('cards'); if(!wrap) return;
   wrap.innerHTML='';
@@ -282,7 +320,6 @@ function buildCards(){
     const pw2El     = card.querySelector('#PW2_'+r.size);
     const pBidEl    = card.querySelector('#PBID_'+r.size);
 
-    // เก็บค่าไว้เฉย ๆ ระหว่างพิมพ์
     ['input','change','keyup','blur'].forEach(ev=>{
       costInput.addEventListener(ev, ()=>{
         if(costInput.value===''){ delete costs[cfg.size]; } else { costs[cfg.size]=toNum0(costInput.value); }
@@ -294,8 +331,15 @@ function buildCards(){
       });
     });
 
-    // ✅ กดแล้วคำนวณทันที (ไม่ต้องรีเฟรช)
-    calcBtn.addEventListener('click', ()=>{
+    // แตะปุ่ม/คลิก → คำนวณทันที (รองรับมือถือ)
+    bindCalcPress(calcBtn, ()=>{
+      calculateCard(cfg, {costInput, bidInput, w2El, pw2El, pBidEl, profitEl});
+    });
+    // กด Enter ในช่อง → คำนวณทันที
+    bindEnterAsCalc(costInput, ()=>{
+      calculateCard(cfg, {costInput, bidInput, w2El, pw2El, pBidEl, profitEl});
+    });
+    bindEnterAsCalc(bidInput, ()=>{
       calculateCard(cfg, {costInput, bidInput, w2El, pw2El, pBidEl, profitEl});
     });
 
@@ -303,7 +347,9 @@ function buildCards(){
   });
 }
 
-/** ====== sync card from table ====== */
+/* =========================
+   SYNC (table <-> card)
+   ========================= */
 function updateCard(r){
   const id = 'card_'+r.size.replace(/\s+/g,'_');
   const card = document.getElementById(id); if(!card) return;
@@ -317,7 +363,9 @@ function updateCard(r){
   if(profitEl){ profitEl.textContent = fmt0(r.pBid); profitEl.style.color = Number.isFinite(r.pBid)? (r.pBid>=0?'var(--good)':'var(--bad)') : '#4b5563'; }
 }
 
-/** ====== export csv ====== */
+/* =========================
+   EXPORT / RESET / SORT
+   ========================= */
 function exportCSV(){
   const rows = [['Size','ราคาทุน','ราคา W2','กำไร/กก. (W2)','ราคา Bidding','กำไร/กก. (Bidding)']];
   DATA.config.sizes.forEach(cfg=>{
@@ -330,13 +378,13 @@ function exportCSV(){
   const a=document.createElement('a'); a.href=url; a.download='shrimp_bidding_nodecimals.csv'; a.click(); URL.revokeObjectURL(url);
 }
 
-/** ====== reset & sort ====== */
 function resetAll(){
   if(confirm('ล้างค่าที่บันทึกทั้งหมด?')){
     localStorage.removeItem(KEY_COSTS); localStorage.removeItem(KEY_BIDS);
     costs={}; bids={}; buildTable(); buildCards();
   }
 }
+
 function sortCards(){
   const rows = DATA.config.sizes.map(cfg=>calc(cfg)).sort((a,b)=>{
     const ax = Number.isFinite(a.pBid)?a.pBid:-1e12; const bx = Number.isFinite(b.pBid)?b.pBid:-1e12; return bx-ax;
@@ -347,7 +395,9 @@ function sortCards(){
   wrap.innerHTML=''; newOrder.forEach(el=>wrap.appendChild(el));
 }
 
-/** ====== init ====== */
+/* =========================
+   INIT
+   ========================= */
 document.getElementById('exportCSV').addEventListener('click', exportCSV);
 document.getElementById('resetAll').addEventListener('click', resetAll);
 document.getElementById('sortCards').addEventListener('click', sortCards);
