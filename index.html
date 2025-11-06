@@ -170,6 +170,26 @@
       <div class="hint">รองรับคอลัมน์: <b>Size</b>, <b>ราคาทุน</b>, <b>SG&A + LG</b>, <b>Margin W2</b>, <b>ราคา Bidding</b> (ถ้ามี)</div>
     </div>
 
+<!-- ตั้งธีมเริ่มต้น: natural | energy | elegant -->
+<body data-theme="natural">
+  <!-- Toolbar (เหลือเฉพาะ Reset / Export) -->
+  <div class="wrap-tools">
+    <button id="resetAll">ล้างค่า</button>
+    <button id="exportCSV" class="primary">ส่งออก CSV</button>
+  </div>
+
+  <div class="app">
+    <!-- Import Excel/CSV (Admin only: ?admin=1) -->
+    <div class="import" id="importPanel">
+      <h3>นำเข้า Excel/CSV (อัปเดตราคาทุนรายวัน)</h3>
+      <div class="row">
+        <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" />
+        <button id="parseFile" class="primary">นำเข้าไฟล์</button>
+        <button id="clearState">ล้างข้อมูลที่บันทึกไว้</button>
+      </div>
+      <div class="hint">รองรับคอลัมน์: <b>Size</b>, <b>ราคาทุน</b>, <b>SG&A + LG</b>, <b>Margin W2</b>, <b>ราคา Bidding</b> (ถ้ามี)</div>
+    </div>
+
     <!-- Desktop Table -->
     <div class="card tbl">
       <table id="tbl">
@@ -181,7 +201,6 @@
             <th>กำไร/กก. (W2)</th>
             <th>ราคา Bidding</th>
             <th>กำไร/กก. (Bidding)</th>
-            <th>การทำงาน</th>
           </tr>
         </thead>
         <tbody></tbody>
@@ -192,9 +211,17 @@
     <div class="cards" id="cards"></div>
   </div>
 
+  <footer>Created by Anenger Shrimp UNO</footer>
+
 <script>
 /* =========================
-   DEFAULT DATA (แก้ตามจริงได้)
+   ADMIN-ONLY IMPORT PANEL
+   ========================= */
+const isAdmin = new URLSearchParams(location.search).get('admin') === '1';
+document.getElementById('importPanel').style.display = isAdmin ? 'block' : 'none';
+
+/* =========================
+   DEFAULT DATA (แก้ได้)
    ========================= */
 const DATA = {config:{sizes:[
   {"size":"STD Jumbo","sga_lg":21.71,"margin_w2":12,"last_cost":286},
@@ -212,31 +239,16 @@ const DATA = {config:{sizes:[
 /* =========================
    STATE & UTIL
    ========================= */
-const KEY_COSTS='shrimp_costs_v1';
-const KEY_BIDS='shrimp_bids_v1';
+const KEY_COSTS='shrimp_costs_v1';   // ราคาทุน (localStorage)
+const KEY_BIDS ='shrimp_bids_v1';    // ราคา Bidding (localStorage)
 let costs = JSON.parse(localStorage.getItem(KEY_COSTS) || '{}');
 let bids  = JSON.parse(localStorage.getItem(KEY_BIDS)  || '{}');
 
 const toNum0 = v => {
-  const s = String(v ?? '').replace(/[^0-9-]/g, '');
-  if (!s) return NaN;
-  const n = parseInt(s, 10);
-  return Number.isFinite(n) ? n : NaN;
+  const s = String(v ?? '').replace(/[^0-9-]/g, '');  // กรองให้เป็นเลขจำนวนเต็ม
+  if (!s) return NaN; const n = parseInt(s, 10); return Number.isFinite(n) ? n : NaN;
 };
 const fmt0 = n => (n===null||n===undefined||isNaN(n))?'-':String(Math.round(Number(n)));
-
-/* IME commit + mobile press helpers */
-function runAfterIMECommit(fn){ setTimeout(fn,0); } // or requestAnimationFrame(fn)
-function bindCalcPress(el, handler){
-  const wrapped = (ev)=>{ ev.preventDefault(); ev.stopPropagation(); runAfterIMECommit(handler); };
-  el.addEventListener('click', wrapped, {passive:false});
-  el.addEventListener('touchend', wrapped, {passive:false});
-}
-function bindEnterAsCalc(inputEl, pressFn){
-  inputEl.addEventListener('keydown',(e)=>{ if(e.key==='Enter'){ e.preventDefault(); runAfterIMECommit(pressFn); } });
-}
-
-const bySize = () => new Map(DATA.config.sizes.map(s=>[s.size,s]));
 
 /* =========================
    CORE CALC
@@ -259,50 +271,7 @@ function calc(cfg){
 }
 
 /* =========================
-   CALCULATE (per row / card)
-   ========================= */
-function calculateRow(cfg, refs){
-  const {costInput,bidInput,cW2,cPW2,cPBID} = refs;
-  const costVal = costInput.value.trim();
-  const bidVal  = bidInput.value.trim();
-
-  if(costVal===''){ delete costs[cfg.size]; } else { costs[cfg.size]=toNum0(costVal); }
-  if(bidVal===''){  delete bids[cfg.size];  } else { bids[cfg.size] = toNum0(bidVal); }
-  localStorage.setItem(KEY_COSTS, JSON.stringify(costs));
-  localStorage.setItem(KEY_BIDS,  JSON.stringify(bids));
-
-  const r = calc(cfg);
-  cW2.textContent  = fmt0(r.w2);
-  cPW2.textContent = fmt0(r.pW2);
-  cPBID.textContent= fmt0(r.pBid);
-  cPBID.style.color = Number.isFinite(r.pBid)? (r.pBid>=0?'var(--good)':'var(--bad)') : 'inherit';
-
-  updateCard(r);
-}
-
-function calculateCard(cfg, refs){
-  const {costInput,bidInput,w2El,pw2El,pBidEl,profitEl} = refs;
-  const costVal = costInput.value.trim();
-  const bidVal  = bidInput.value.trim();
-
-  if(costVal===''){ delete costs[cfg.size]; } else { costs[cfg.size]=toNum0(costVal); }
-  if(bidVal===''){  delete bids[cfg.size];  } else { bids[cfg.size] = toNum0(bidVal); }
-  localStorage.setItem(KEY_COSTS, JSON.stringify(costs));
-  localStorage.setItem(KEY_BIDS,  JSON.stringify(bids));
-
-  const r = calc(cfg);
-  w2El.textContent   = fmt0(r.w2);
-  pw2El.textContent  = fmt0(r.pW2);
-  pBidEl.textContent = fmt0(r.pBid);
-  profitEl.textContent = fmt0(r.pBid);
-  const color = Number.isFinite(r.pBid)? (r.pBid>=0?'var(--good)':'var(--bad)') : '#9fb3c8';
-  pBidEl.style.color = color; profitEl.style.color = color;
-
-  updateCard(r);
-}
-
-/* =========================
-   BUILD VIEWS
+   BUILD VIEWS (auto-calc on input)
    ========================= */
 function buildTable(){
   const tbody = document.querySelector('#tbl tbody'); if(!tbody) return;
@@ -328,22 +297,31 @@ function buildTable(){
     c5.style.color = Number.isFinite(r.pBid)? (r.pBid>=0?'var(--good)':'var(--bad)') : 'inherit';
     tr.appendChild(c5);
 
-    const c6 = document.createElement('td'); c6.className='actions';
-    c6.innerHTML = `<button class="primary" type="button">คำนวณ</button>`;
-    tr.appendChild(c6);
-
     const costInput = c1.querySelector('input');
     const bidInput  = c4.querySelector('input');
-    const calcBtn   = c6.querySelector('button');
 
+    // คำนวณทันทีเมื่อกรอก/เปลี่ยนค่า
     ['input','change','keyup','blur'].forEach(ev=>{
-      costInput.addEventListener(ev, ()=>{ if(costInput.value===''){ delete costs[cfg.size]; } else { costs[cfg.size]=toNum0(costInput.value); } localStorage.setItem(KEY_COSTS, JSON.stringify(costs)); });
-      bidInput.addEventListener(ev,  ()=>{ if(bidInput.value===''){ delete bids[cfg.size]; } else { bids[cfg.size]=toNum0(bidInput.value); }  localStorage.setItem(KEY_BIDS,  JSON.stringify(bids));  });
-    });
+      costInput.addEventListener(ev, ()=>{
+        if(costInput.value===''){ delete costs[cfg.size]; } else { costs[cfg.size]=toNum0(costInput.value); }
+        localStorage.setItem(KEY_COSTS, JSON.stringify(costs));
+        const rr = calc(cfg);
+        c2.textContent = fmt0(rr.w2);
+        c3.textContent = fmt0(rr.pW2);
+        c5.textContent = fmt0(rr.pBid);
+        c5.style.color = Number.isFinite(rr.pBid)? (rr.pBid>=0?'var(--good)':'var(--bad)') : 'inherit';
+        updateCard(rr);
+      });
 
-    bindCalcPress(calcBtn, ()=>{ calculateRow(cfg, {costInput, bidInput, cW2:c2, cPW2:c3, cPBID:c5}); });
-    bindEnterAsCalc(costInput, ()=>{ calculateRow(cfg, {costInput, bidInput, cW2:c2, cPW2:c3, cPBID:c5}); });
-    bindEnterAsCalc(bidInput,  ()=>{ calculateRow(cfg, {costInput, bidInput, cW2:c2, cPW2:c3, cPBID:c5}); });
+      bidInput.addEventListener(ev, ()=>{
+        if(bidInput.value===''){ delete bids[cfg.size]; } else { bids[cfg.size]=toNum0(bidInput.value); }
+        localStorage.setItem(KEY_BIDS, JSON.stringify(bids));
+        const rr = calc(cfg);
+        c5.textContent = fmt0(rr.pBid);
+        c5.style.color = Number.isFinite(rr.pBid)? (rr.pBid>=0?'var(--good)':'var(--bad)') : 'inherit';
+        updateCard(rr);
+      });
+    });
 
     tbody.appendChild(tr);
   });
@@ -359,7 +337,7 @@ function buildCards(){
     const head = document.createElement('div'); head.className='item-head';
     const sizeEl = document.createElement('div'); sizeEl.className='size'; sizeEl.textContent=r.size; head.appendChild(sizeEl);
     const profitEl = document.createElement('div'); profitEl.className='profit'; profitEl.textContent = fmt0(r.pBid);
-    profitEl.style.color = Number.isFinite(r.pBid)? (r.pBid>=0?'var(--good)':'var(--bad)') : '#9fb3c8';
+    profitEl.style.color = Number.isFinite(r.pBid)? (r.pBid>=0?'var(--good)':'var(--bad)') : '#64748b';
     head.appendChild(profitEl);
     card.appendChild(head);
 
@@ -385,27 +363,39 @@ function buildCards(){
     fPBid.innerHTML = `<div class='label'>กำไร/กก. (Bidding)</div><div class='val' id='PBID_${r.size}'>${fmt0(r.pBid)}</div>`;
     fields.appendChild(fPBid);
 
-    const fActions = document.createElement('div'); fActions.className='field actions';
-    fActions.innerHTML = `<button class="primary" type="button">คำนวณ</button>`;
-    fields.appendChild(fActions);
-
     card.appendChild(fields);
 
     const costInput = fCost.querySelector('input');
     const bidInput  = fBid.querySelector('input');
-    const calcBtn   = fActions.querySelector('button');
     const w2El      = card.querySelector('#W2_'+r.size);
     const pw2El     = card.querySelector('#PW2_'+r.size);
     const pBidEl    = card.querySelector('#PBID_'+r.size);
 
     ['input','change','keyup','blur'].forEach(ev=>{
-      costInput.addEventListener(ev, ()=>{ if(costInput.value===''){ delete costs[cfg.size]; } else { costs[cfg.size]=toNum0(costInput.value); } localStorage.setItem(KEY_COSTS, JSON.stringify(costs)); });
-      bidInput.addEventListener(ev,  ()=>{ if(bidInput.value===''){ delete bids[cfg.size]; } else { bids[cfg.size]=toNum0(bidInput.value); }  localStorage.setItem(KEY_BIDS,  JSON.stringify(bids));  });
-    });
+      costInput.addEventListener(ev, ()=>{
+        if(costInput.value===''){ delete costs[cfg.size]; } else { costs[cfg.size]=toNum0(costInput.value); }
+        localStorage.setItem(KEY_COSTS, JSON.stringify(costs));
+        const rr = calc(cfg);
+        w2El.textContent  = fmt0(rr.w2);
+        pw2El.textContent = fmt0(rr.pW2);
+        pBidEl.textContent= fmt0(rr.pBid);
+        profitEl.textContent = fmt0(rr.pBid);
+        const color = Number.isFinite(rr.pBid)? (rr.pBid>=0?'var(--good)':'var(--bad)') : '#64748b';
+        pBidEl.style.color = color; profitEl.style.color = color;
+        buildTable(); // sync desktop
+      });
 
-    bindCalcPress(calcBtn, ()=>{ calculateCard(cfg, {costInput, bidInput, w2El, pw2El, pBidEl, profitEl}); });
-    bindEnterAsCalc(costInput, ()=>{ calculateCard(cfg, {costInput, bidInput, w2El, pw2El, pBidEl, profitEl}); });
-    bindEnterAsCalc(bidInput,  ()=>{ calculateCard(cfg, {costInput, bidInput, w2El, pw2El, pBidEl, profitEl}); });
+      bidInput.addEventListener(ev, ()=>{
+        if(bidInput.value===''){ delete bids[cfg.size]; } else { bids[cfg.size]=toNum0(bidInput.value); }
+        localStorage.setItem(KEY_BIDS, JSON.stringify(bids));
+        const rr = calc(cfg);
+        pBidEl.textContent = fmt0(rr.pBid);
+        profitEl.textContent = fmt0(rr.pBid);
+        const color = Number.isFinite(rr.pBid)? (rr.pBid>=0?'var(--good)':'var(--bad)') : '#64748b';
+        pBidEl.style.color = color; profitEl.style.color = color;
+        buildTable(); // sync desktop
+      });
+    });
 
     wrap.appendChild(card);
   });
@@ -422,12 +412,12 @@ function updateCard(r){
   const profitEl = card.querySelector('.profit');
   if(w2El) w2El.textContent = fmt0(r.w2);
   if(pw2El) pw2El.textContent= fmt0(r.pW2);
-  if(pEl){ pEl.textContent = fmt0(r.pBid); pEl.style.color = Number.isFinite(r.pBid)? (r.pBid>=0?'var(--good)':'var(--bad)') : '#9fb3c8'; }
-  if(profitEl){ profitEl.textContent = fmt0(r.pBid); profitEl.style.color = Number.isFinite(r.pBid)? (r.pBid>=0?'var(--good)':'var(--bad)') : '#9fb3c8'; }
+  if(pEl){ pEl.textContent = fmt0(r.pBid); pEl.style.color = Number.isFinite(r.pBid)? (r.pBid>=0?'var(--good)':'var(--bad)') : '#64748b'; }
+  if(profitEl){ profitEl.textContent = fmt0(r.pBid); profitEl.style.color = Number.isFinite(r.pBid)? (r.pBid>=0?'var(--good)':'var(--bad)') : '#64748b'; }
 }
 
 /* =========================
-   EXPORT / RESET / SORT
+   EXPORT / RESET
    ========================= */
 function exportCSV(){
   const rows = [['Size','ราคาทุน','ราคา W2','กำไร/กก. (W2)','ราคา Bidding','กำไร/กก. (Bidding)']];
@@ -446,18 +436,9 @@ function resetAll(){
     costs={}; bids={}; buildTable(); buildCards();
   }
 }
-function sortCards(){
-  const rows = DATA.config.sizes.map(cfg=>calc(cfg)).sort((a,b)=>{
-    const ax = Number.isFinite(a.pBid)?a.pBid:-1e12; const bx = Number.isFinite(b.pBid)?b.pBid:-1e12; return bx-ax;
-  });
-  const wrap = document.getElementById('cards');
-  const newOrder = [];
-  rows.forEach(r=>{ const el = document.getElementById('card_'+r.size.replace(/\s+/g,'_')); if(el) newOrder.push(el); });
-  wrap.innerHTML=''; newOrder.forEach(el=>wrap.appendChild(el));
-}
 
 /* =========================
-   IMPORT Excel/CSV
+   IMPORT Excel/CSV (Admin only)
    ========================= */
 function parseFile(){
   const file = document.getElementById('fileInput').files[0];
@@ -479,15 +460,12 @@ function parseFile(){
     reader.readAsArrayBuffer(file);
   }
 }
-
 function parseCSVText(text){
   const lines = text.split(/\r?\n/).filter(x=>x.trim().length>0);
   const rows = lines.map(line => line.split(',').map(s=>s.trim()));
   parseArrayRows(rows);
 }
-
 function normalizeHeader(h){ return (h||'').replace(/\r?\n/g,' ').trim(); }
-
 function parseArrayRows(rows){
   if(!rows || rows.length<2){ alert('ไฟล์ไม่มีข้อมูลเพียงพอ'); return; }
   const headers = rows[0].map(normalizeHeader);
@@ -500,28 +478,27 @@ function parseArrayRows(rows){
   };
   if(idx.size===-1){ alert('ไม่พบคอลัมน์ Size'); return; }
 
-  // อัปเดตค่าคงที่ต่อไซซ์จากไฟล์
+  const map = new Map(DATA.config.sizes.map(s=>[s.size,s]));
   const sizes = [];
   for(let i=1;i<rows.length;i++){
     const row = rows[i];
     const size = String(row[idx.size]||'').trim();
     if(!size || !/^STD/i.test(size)) continue;
+
     const sga  = (idx.sga>-1)? parseFloat(String(row[idx.sga]||'').replace(/,/g,'')) : undefined;
     const mw2  = (idx.mw2>-1)? parseFloat(String(row[idx.mw2]||'').replace(/,/g,'')) : undefined;
     const cost = (idx.cost>-1)? parseFloat(String(row[idx.cost]||'').replace(/,/g,'')) : undefined;
     const bid  = (idx.bid>-1)?  parseFloat(String(row[idx.bid]||'').replace(/,/g,''))  : undefined;
 
-    // คงค่าเดิมถ้าไฟล์ไม่ให้
-    const prev = (bySize().get(size)) || {};
+    const prev = map.get(size) || {};
     sizes.push({
       size,
-      sga_lg: (sga!=null && Number.isFinite(sga))? sga : prev.sga_lg ?? 0,
-      margin_w2: (mw2!=null && Number.isFinite(mw2))? mw2 : prev.margin_w2 ?? 0,
-      last_cost: (cost!=null && Number.isFinite(cost))? cost : prev.last_cost,
-      last_bid : (bid!=null && Number.isFinite(bid))?  bid  : prev.last_bid
+      sga_lg   : Number.isFinite(sga)? sga : prev.sga_lg ?? 0,
+      margin_w2: Number.isFinite(mw2)? mw2 : prev.margin_w2 ?? 0,
+      last_cost: Number.isFinite(cost)?cost: prev.last_cost,
+      last_bid : Number.isFinite(bid) ?bid : prev.last_bid
     });
   }
-
   DATA.config.sizes = sizes;
   buildTable(); buildCards();
   alert('นำเข้าข้อมูลสำเร็จ: ' + sizes.length + ' ไซซ์');
@@ -532,14 +509,15 @@ function parseArrayRows(rows){
    ========================= */
 document.getElementById('exportCSV').addEventListener('click', exportCSV);
 document.getElementById('resetAll').addEventListener('click', resetAll);
-document.getElementById('sortCards').addEventListener('click', sortCards);
-document.getElementById('parseFile').addEventListener('click', parseFile);
-document.getElementById('clearState').addEventListener('click', ()=>{
-  if(confirm('ล้างข้อมูลที่บันทึกในเครื่องทั้งหมด (ราคาทุน/ราคา Bidding)?')){
-    localStorage.removeItem(KEY_COSTS); localStorage.removeItem(KEY_BIDS);
-    costs={}; bids={}; buildTable(); buildCards();
-  }
-});
+if(isAdmin){
+  document.getElementById('parseFile').addEventListener('click', parseFile);
+  document.getElementById('clearState').addEventListener('click', ()=>{
+    if(confirm('ล้างข้อมูลที่บันทึก (ราคาทุน/ราคา Bidding) ทั้งหมด?')){
+      localStorage.removeItem(KEY_COSTS); localStorage.removeItem(KEY_BIDS);
+      costs={}; bids={}; buildTable(); buildCards();
+    }
+  });
+}
 
 buildTable();
 buildCards();
