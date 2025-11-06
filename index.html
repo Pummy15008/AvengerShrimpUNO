@@ -157,28 +157,6 @@
   </div>
 
   <div class="app">
-    <!-- Import Excel/CSV -->
-    <div class="import">
-      <h3>นำเข้า Excel/CSV (อัปเดตราคาทุนรายวัน)</h3>
-      <div class="row">
-        <div class="file">
-          <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" />
-        </div>
-        <button id="parseFile" class="primary">นำเข้าไฟล์</button>
-        <button id="clearState">ล้างข้อมูลที่บันทึกไว้</button>
-      </div>
-      <div class="hint">รองรับคอลัมน์: <b>Size</b>, <b>ราคาทุน</b>, <b>SG&A + LG</b>, <b>Margin W2</b>, <b>ราคา Bidding</b> (ถ้ามี)</div>
-    </div>
-
-<!-- ตั้งธีมเริ่มต้น: natural | energy | elegant -->
-<body data-theme="natural">
-  <!-- Toolbar (เหลือเฉพาะ Reset / Export) -->
-  <div class="wrap-tools">
-    <button id="resetAll">ล้างค่า</button>
-    <button id="exportCSV" class="primary">ส่งออก CSV</button>
-  </div>
-
-  <div class="app">
     <!-- Import Excel/CSV (Admin only: ?admin=1) -->
     <div class="import" id="importPanel">
       <h3>นำเข้า Excel/CSV (อัปเดตราคาทุนรายวัน)</h3>
