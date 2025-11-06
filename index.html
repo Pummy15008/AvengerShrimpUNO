@@ -3,173 +3,61 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>CP | Shrimp Bidding Helper</title>
-
-
+  <title>CP | Shrimp Bidding Helper (No Decimals / No Notes)</title>
   <style>
-    :root{
-      /* โทนสีสด + เรียบหรู */
-      --brand: #00A651;          /* เขียว CP (ปรับได้) */
-      --brand-2: #11C5A3;        /* เขียวฟ้าไฮไลต์ */
-      --bg: #0b0f1c;             /* พื้นหลังเข้ม */
-      --glass: rgba(255,255,255,0.08);
-      --text: #eaf2ff;           /* ตัวอักษร */
-      --muted: #9fb3c8;          /* รอง */
-      --line: rgba(255,255,255,0.12);
-      --good:#3adb76;            /* ผลกำไรบวก */
-      --bad:#ff5a5f;             /* กำไรติดลบ */
-      --accent:#ffd166;          /* เน้น */
-    }
-    *{box-sizing:border-box}
-    html,body{height:100%}
-    body{
-      margin:0;
-      font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,"TH Sarabun New",Prompt,sans-serif;
-      color:var(--text);
-      background:
-        radial-gradient(1200px 600px at 20% -10%, #12204a 0%, transparent 60%),
-        radial-gradient(900px 500px at 90% 10%, #0e2f2b 0%, transparent 60%),
-        var(--bg);
-    }
-
-    /* Header: gradient + โลโก้ทางการ */
-    .header{
-      position:relative;
-      padding:20px 16px;
-      border-bottom:1px solid var(--line);
-      background:
-        linear-gradient(135deg, rgba(0,166,81,0.3), rgba(17,197,163,0.15)),
-        linear-gradient(135deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02));
-      backdrop-filter: blur(6px);
-    }
-    .wrap{
-      max-width:1200px; margin:0 auto;
-      display:flex; align-items:center; gap:16px; flex-wrap:wrap;
-    }
-    .brand{
-      display:flex; align-items:center; gap:14px;
-    }
-    .brand img{
-      width:44px; height:44px; object-fit:contain;
-      filter: drop-shadow(0 2px 6px rgba(0,0,0,0.35));
-    }
-    .title{
-      font-size:20px; font-weight:700; letter-spacing:0.3px;
-    }
-    .toolbar{
-      margin-left:auto; display:flex; gap:10px; flex-wrap:wrap;
-    }
-    button{
-      padding:10px 14px; border-radius:12px; border:1px solid var(--line);
-      background:rgba(255,255,255,0.06); color:var(--text); cursor:pointer;
-      transition: transform .08s ease, box-shadow .2s ease, background .2s;
-    }
-    button:hover{ transform: translateY(-1px); background:rgba(255,255,255,0.1); }
-    button.primary{
-      background: linear-gradient(135deg, var(--brand) 0%, var(--brand-2) 100%);
-      border-color: transparent; color:#061214;
-      font-weight:600;
-      box-shadow: 0 8px 24px rgba(17,197,163,0.3), inset 0 1px 0 rgba(255,255,255,0.35);
-    }
-
-    /* Container */
-    .app{ max-width:1200px; margin:20px auto; padding:0 16px; display:grid; gap:16px; }
-
-    /* Import panel: glassmorphism */
-    .import{
-      border:1px solid var(--line);
-      background: var(--glass);
-      backdrop-filter: blur(10px);
-      border-radius:16px; padding:16px;
-    }
-    .import h3{ margin:0 0 6px 0; font-size:16px; }
-    .import .row{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
-    .file{
-      display:flex; align-items:center; gap:10px;
-      border:1px dashed var(--line); padding:10px 12px; border-radius:12px;
-      background:rgba(255,255,255,0.04);
-    }
-    input[type=file]{ color:var(--muted); }
-    .hint{ font-size:12px; color:var(--muted); margin-top:8px; }
-
-    /* Desktop table view */
-    .card{
-      border:1px solid var(--line);
-      background: var(--glass);
-      backdrop-filter: blur(8px);
-      border-radius:16px; padding:12px;
-    }
-    table{
-      width:100%; border-collapse:separate; border-spacing:0;
-    }
-    th,td{
-      padding:12px; border-bottom:1px solid var(--line); text-align:right; vertical-align:middle;
-    }
-    thead th{
-      position:sticky; top:0; background:rgba(255,255,255,0.06);
-      color:var(--muted); font-weight:600;
-    }
-    td:first-child, th:first-child{ text-align:left }
-    td input{
-      width:140px; padding:10px; border-radius:10px; border:1px solid var(--line);
-      background:rgba(255,255,255,0.06); color:var(--text);
-    }
-    .actions{ display:flex; gap:8px; align-items:center; justify-content:flex-end }
-
-    /* Mobile cards */
-    .cards{ display:grid; grid-template-columns:1fr; gap:12px }
-    .item{
-      border:1px solid var(--line); border-radius:16px;
-      background: var(--glass); backdrop-filter: blur(10px); padding:14px;
-    }
-    .item-head{
-      display:flex; align-items:center; justify-content:space-between; gap:12px;
-    }
-    .size{ font-weight:700 }
-    .profit{ font-weight:700 }
-    .fields{ display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:10px }
-    .field{ display:flex; flex-direction:column; gap:6px }
-    .label{ font-size:12px; color:var(--muted) }
-    .val{ font-size:16px }
-    input[type=tel]{
-      width:100%; padding:12px; border-radius:12px; border:1px solid var(--line);
-      background:rgba(255,255,255,0.06); color:var(--text); font-size:16px;
-    }
-
-    /* Responsive breakpoint */
-    @media (min-width: 900px){ .tbl{ display:block } .cards{ display:none } }
-    @media (max-width: 899px){ .tbl{ display:none } .cards{ display:grid } }
+    :root{ --bg:#f7fafc; --panel:#ffffff; --text:#0f172a; --line:#e5e7eb; --primary:#0ea5e9; --good:#16a34a; --bad:#ef4444; }
+    *{box-sizing:border-box} 
+    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,TH Sarabun New,Prompt,sans-serif;background:var(--bg);color:var(--text)}
+    .app{max-width:1200px;margin:0 auto;padding:16px}
+    header{display:flex;align-items:center;gap:12px;padding:4px 0 12px 0;flex-wrap:wrap}
+    .brand{display:flex;align-items:center;gap:10px}
+    .logo-badge{width:40px;height:40px;border-radius:10px;background:#ffd54d;color:#b45309;display:grid;place-items:center;font-weight:800;border:1px solid #f59e0b}
+    .shrimp{width:40px;height:40px}
+    h1{font-size:18px;margin:0}
+    .toolbar{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}
+    button{padding:10px 14px;border-radius:10px;border:1px solid var(--line);background:#ffffff;cursor:pointer}
+    button.primary{background:var(--primary);border-color:var(--primary);color:#fff}
+    .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px}
+    .tbl-wrap{display:none}
+    table{width:100%;border-collapse:separate;border-spacing:0}
+    th,td{padding:12px;border-bottom:1px solid var(--line);text-align:right}
+    th{background:#f3f4f6;color:#374151;position:sticky;top:0}
+    td:first-child, th:first-child{text-align:left}
+    td input[type=number]{width:140px;padding:10px;border-radius:10px;border:1px solid var(--line);background:#fff;color:var(--text)}
+    .cards{display:grid;grid-template-columns:1fr;gap:10px}
+    .item{border:1px solid var(--line);border-radius:12px;background:#fff;padding:12px}
+    .item-head{display:flex;align-items:center;justify-content:space-between;gap:10px}
+    .size{font-weight:600}
+    .fields{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px}
+    .field{display:flex;flex-direction:column;gap:6px}
+    .label{font-size:12px;color:#374151}
+    .val{font-size:16px}
+    .profit{font-weight:600}
+    input[type=number]{width:100%;padding:12px;border-radius:10px;border:1px solid var(--line);background:#fff;color:#0f172a;font-size:16px}
+    @media (min-width: 900px){ .tbl-wrap{display:block} .cards{display:none} }
   </style>
 </head>
 <body>
-  <!-- Header -->
-  <div class="header">
-    <div class="wrap">
+  <div class="app">
+    <header>
       <div class="brand">
-        <div class="title">CP Shrimp Bidding Helper</div>
+        <div class="logo-badge" title="CP">CP</div>
+        <svg class="shrimp" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <path d="M10 34c0-12 10-22 22-22h16a8 8 0 110 16H32a6 6 0 100 12h10" fill="#fda4af" stroke="#db2777" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <circle cx="42" cy="18" r="2" fill="#0f172a"/>
+          <path d="M22 42c6 6 14 8 22 6" stroke="#db2777" stroke-width="2" fill="none" stroke-linecap="round"/>
+        </svg>
       </div>
+      <h1>ตัวช่วยคำนวณกำไร/กก. (Bidding)</h1>
       <div class="toolbar">
         <button id="resetAll">ล้างค่า</button>
         <button id="exportCSV" class="primary">ส่งออก CSV</button>
         <button id="sortCards">เรียงการ์ดตามกำไร</button>
       </div>
-    </div>
-  </div>
+    </header>
 
-  <div class="app">
-    <!-- Import Excel/CSV (Admin only: ?admin=1) -->
-    <div class="import" id="importPanel">
-      <h3>นำเข้า Excel/CSV (อัปเดตราคาทุนรายวัน)</h3>
-      <div class="row">
-        <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" />
-        <button id="parseFile" class="primary">นำเข้าไฟล์</button>
-        <button id="clearState">ล้างข้อมูลที่บันทึกไว้</button>
-      </div>
-      <div class="hint">รองรับคอลัมน์: <b>Size</b>, <b>ราคาทุน</b>, <b>SG&A + LG</b>, <b>Margin W2</b>, <b>ราคา Bidding</b> (ถ้ามี)</div>
-    </div>
-
-    <!-- Desktop Table -->
-    <div class="card tbl">
+    <!-- Desktop table view -->
+    <div class="card tbl-wrap">
       <table id="tbl">
         <thead>
           <tr>
@@ -185,128 +73,100 @@
       </table>
     </div>
 
-    <!-- Mobile Cards -->
+    <!-- Mobile card list view -->
     <div class="cards" id="cards"></div>
   </div>
 
-  <footer>Created by Anenger Shrimp UNO</footer>
-
 <script>
-/* =========================
-   ADMIN-ONLY IMPORT PANEL
-   ========================= */
-const isAdmin = new URLSearchParams(location.search).get('admin') === '1';
-document.getElementById('importPanel').style.display = isAdmin ? 'block' : 'none';
-
-/* =========================
-   DEFAULT DATA (แก้ได้)
-   ========================= */
-const DATA = {config:{sizes:[
+/** ====== CONFIG ====== 
+ * แทรกค่าคงที่ SG&A + LG และ Margin W2 ต่อไซซ์จากเทมเพลต (ปรับตามจริงถ้าจำเป็น)
+ * หมายเหตุ: หากคุณจะโหลดค่าเหล่านี้จากไฟล์/บริการภายนอก ให้ดัดแปลงส่วน DATA นี้
+ */
+const DATA = {config:{sizes: [
   {"size":"STD Jumbo","sga_lg":21.71,"margin_w2":12,"last_cost":286},
   {"size":"STD 4XL","sga_lg":20.96,"margin_w2":12,"last_cost":252},
   {"size":"STD 3XL","sga_lg":20.80,"margin_w2":11,"last_cost":235},
-  {"size":"STD 2XL+","sga_lg":20.66,"margin_w2": 9,"last_cost":218},
+  {"size":"STD 2XL+","sga_lg":20.66,"margin_w2":9,"last_cost":218},
   {"size":"STD 2XL","sga_lg":20.48,"margin_w2":10,"last_cost":212},
-  {"size":"STD XL","sga_lg":19.82,"margin_w2": 8,"last_cost":187},
-  {"size":"STD LL","sga_lg":19.57,"margin_w2": 8,"last_cost":177},
-  {"size":"STD L","sga_lg":19.23,"margin_w2": 8,"last_cost":164},
-  {"size":"STD M","sga_lg":18.79,"margin_w2": 7,"last_cost":151},
-  {"size":"STD S","sga_lg":18.38,"margin_w2": 6,"last_cost":136}
+  {"size":"STD XL","sga_lg":19.82,"margin_w2":8,"last_cost":187},
+  {"size":"STD LL","sga_lg":19.57,"margin_w2":8,"last_cost":177},
+  {"size":"STD L","sga_lg":19.23,"margin_w2":8,"last_cost":164},
+  {"size":"STD M","sga_lg":18.79,"margin_w2":7,"last_cost":151},
+  {"size":"STD S","sga_lg":18.38,"margin_w2":6,"last_cost":136}
 ]}};
 
-/* =========================
-   STATE & UTIL
-   ========================= */
-const KEY_COSTS='shrimp_costs_v1';   // ราคาทุน (localStorage)
-const KEY_BIDS ='shrimp_bids_v1';    // ราคา Bidding (localStorage)
+/** ====== STORAGE KEYS ====== */
+const KEY_COSTS='shrimp_costs_v1';
+const KEY_BIDS='shrimp_bids_v1';
+
+/** ====== STATE ====== */
 let costs = JSON.parse(localStorage.getItem(KEY_COSTS) || '{}');
-let bids  = JSON.parse(localStorage.getItem(KEY_BIDS)  || '{}');
+let bids  = JSON.parse(localStorage.getItem(KEY_BIDS) || '{}');
 
-const toNum0 = v => {
-  const s = String(v ?? '').replace(/[^0-9-]/g, '');  // กรองให้เป็นเลขจำนวนเต็ม
-  if (!s) return NaN; const n = parseInt(s, 10); return Number.isFinite(n) ? n : NaN;
-};
-const fmt0 = n => (n===null||n===undefined||isNaN(n))?'-':String(Math.round(Number(n)));
+/** ====== UTIL (จำนวนเต็ม) ====== */
+const fmt0 = n => (n===null||n===undefined||isNaN(n))?'-':String(Math.round(Number(n)));   // ไม่มีคอมมา/ทศนิยม
+const toNum0 = v => { const x = parseFloat(v); return isFinite(x)? Math.round(x) : NaN; };
+const bySize = new Map(DATA.config.sizes.map(s=>[s.size,s]));
 
-/* =========================
-   CORE CALC
-   ========================= */
+/** ====== CORE CALC ====== */
 function calc(cfg){
-  const size  = cfg.size;
-  const cost  = Number.isFinite(costs[size]) ? costs[size]
-                : Number.isFinite(cfg.last_cost) ? cfg.last_cost
-                : NaN;
-  const floor = (Number.isFinite(cost) ? cost : NaN) + cfg.sga_lg;
-  const w2    = Number.isFinite(floor) ? floor + cfg.margin_w2 : NaN;
-  const pW2   = Number.isFinite(w2)&&Number.isFinite(floor) ? (w2 - floor) : NaN;
-
-  const bid   = Number.isFinite(bids[size]) ? bids[size]
-                : Number.isFinite(cfg.last_bid) ? cfg.last_bid
-                : NaN;
-  const pBid  = (Number.isFinite(bid) && Number.isFinite(floor)) ? (bid - floor) : NaN;
-
+  const size = cfg.size;
+  const cost = (costs[size] ?? cfg.last_cost ?? NaN);
+  const floor = (isFinite(cost)?cost:NaN) + cfg.sga_lg;
+  const w2 = floor + cfg.margin_w2;
+  const pW2 = w2 - floor;         // = margin_w2
+  const bid = (bids[size] ?? NaN);
+  const pBid = isFinite(bid)? (bid - floor) : NaN;
   return {size,cost,w2,pW2,bid,pBid};
 }
 
-/* =========================
-   BUILD VIEWS (auto-calc on input)
-   ========================= */
+/** ====== DESKTOP TABLE ====== */
 function buildTable(){
-  const tbody = document.querySelector('#tbl tbody'); if(!tbody) return;
+  const tbody = document.querySelector('#tbl tbody');
+  if(!tbody) return;
   tbody.innerHTML='';
   DATA.config.sizes.forEach(cfg=>{
     const r = calc(cfg);
     const tr = document.createElement('tr');
 
     const c0 = document.createElement('td'); c0.textContent = r.size; tr.appendChild(c0);
-
-    const c1 = document.createElement('td');
-    c1.innerHTML = `<input type="tel" inputmode="numeric" pattern="[0-9]*" value="${Number.isFinite(r.cost)?Math.round(r.cost):''}" aria-label="ราคาทุน">`;
-    tr.appendChild(c1);
-
-    const c2 = document.createElement('td'); c2.textContent = fmt0(r.w2);  tr.appendChild(c2);
+    const c1 = document.createElement('td'); c1.innerHTML = `<input type="number" step="1" inputmode="numeric" value="${isFinite(r.cost)?Math.round(r.cost):''}">`; tr.appendChild(c1);
+    const c2 = document.createElement('td'); c2.textContent = fmt0(r.w2); tr.appendChild(c2);
     const c3 = document.createElement('td'); c3.textContent = fmt0(r.pW2); tr.appendChild(c3);
-
-    const c4 = document.createElement('td');
-    c4.innerHTML = `<input type="tel" inputmode="numeric" pattern="[0-9]*" value="${Number.isFinite(r.bid)?Math.round(r.bid):''}" aria-label="ราคา Bidding">`;
-    tr.appendChild(c4);
-
-    const c5 = document.createElement('td'); c5.textContent = fmt0(r.pBid);
-    c5.style.color = Number.isFinite(r.pBid)? (r.pBid>=0?'var(--good)':'var(--bad)') : 'inherit';
-    tr.appendChild(c5);
+    const c4 = document.createElement('td'); c4.innerHTML = `<input type="number" step="1" inputmode="numeric" value="${isFinite(r.bid)?Math.round(r.bid):''}">`; tr.appendChild(c4);
+    const c5 = document.createElement('td'); c5.textContent = fmt0(r.pBid); c5.style.color = isFinite(r.pBid)? (r.pBid>=0?'var(--good)':'var(--bad)') : 'inherit'; tr.appendChild(c5);
 
     const costInput = c1.querySelector('input');
     const bidInput  = c4.querySelector('input');
 
-    // คำนวณทันทีเมื่อกรอก/เปลี่ยนค่า
-    ['input','change','keyup','blur'].forEach(ev=>{
-      costInput.addEventListener(ev, ()=>{
-        if(costInput.value===''){ delete costs[cfg.size]; } else { costs[cfg.size]=toNum0(costInput.value); }
-        localStorage.setItem(KEY_COSTS, JSON.stringify(costs));
-        const rr = calc(cfg);
-        c2.textContent = fmt0(rr.w2);
-        c3.textContent = fmt0(rr.pW2);
-        c5.textContent = fmt0(rr.pBid);
-        c5.style.color = Number.isFinite(rr.pBid)? (rr.pBid>=0?'var(--good)':'var(--bad)') : 'inherit';
-        updateCard(rr);
-      });
+    costInput.addEventListener('input',()=>{
+      if(costInput.value===''){ delete costs[r.size]; } else { costs[r.size]=toNum0(costInput.value); }
+      localStorage.setItem(KEY_COSTS, JSON.stringify(costs));
+      const rr = calc(cfg);
+      c2.textContent = fmt0(rr.w2);
+      c3.textContent = fmt0(rr.pW2);
+      c5.textContent = fmt0(rr.pBid);
+      c5.style.color = isFinite(rr.pBid)? (rr.pBid>=0?'var(--good)':'var(--bad)') : 'inherit';
+      updateCard(rr);
+    });
 
-      bidInput.addEventListener(ev, ()=>{
-        if(bidInput.value===''){ delete bids[cfg.size]; } else { bids[cfg.size]=toNum0(bidInput.value); }
-        localStorage.setItem(KEY_BIDS, JSON.stringify(bids));
-        const rr = calc(cfg);
-        c5.textContent = fmt0(rr.pBid);
-        c5.style.color = Number.isFinite(rr.pBid)? (rr.pBid>=0?'var(--good)':'var(--bad)') : 'inherit';
-        updateCard(rr);
-      });
+    bidInput.addEventListener('input',()=>{
+      if(bidInput.value===''){ delete bids[r.size]; } else { bids[r.size]=toNum0(bidInput.value); }
+      localStorage.setItem(KEY_BIDS, JSON.stringify(bids));
+      const rr = calc(cfg);
+      c5.textContent = fmt0(rr.pBid);
+      c5.style.color = isFinite(rr.pBid)? (rr.pBid>=0?'var(--good)':'var(--bad)') : 'inherit';
+      updateCard(rr);
     });
 
     tbody.appendChild(tr);
   });
 }
 
+/** ====== MOBILE CARDS ====== */
 function buildCards(){
-  const wrap = document.getElementById('cards'); if(!wrap) return;
+  const wrap = document.getElementById('cards');
+  if(!wrap) return;
   wrap.innerHTML='';
   DATA.config.sizes.forEach(cfg=>{
     const r = calc(cfg);
@@ -314,100 +174,95 @@ function buildCards(){
 
     const head = document.createElement('div'); head.className='item-head';
     const sizeEl = document.createElement('div'); sizeEl.className='size'; sizeEl.textContent=r.size; head.appendChild(sizeEl);
-    const profitEl = document.createElement('div'); profitEl.className='profit'; profitEl.textContent = fmt0(r.pBid);
-    profitEl.style.color = Number.isFinite(r.pBid)? (r.pBid>=0?'var(--good)':'var(--bad)') : '#64748b';
-    head.appendChild(profitEl);
+    const profitEl = document.createElement('div'); profitEl.className='profit'; profitEl.textContent = fmt0(r.pBid); profitEl.style.color = isFinite(r.pBid)? (r.pBid>=0?'var(--good)':'var(--bad)') : '#4b5563'; head.appendChild(profitEl);
     card.appendChild(head);
 
     const fields = document.createElement('div'); fields.className='fields';
 
     const fCost = document.createElement('div'); fCost.className='field';
-    fCost.innerHTML = `<div class='label'>ราคาทุน</div><input type='tel' inputmode='numeric' pattern='[0-9]*' value='${Number.isFinite(r.cost)?Math.round(r.cost):''}'>`;
+    fCost.innerHTML = `<div class='label'>ราคาทุน</div><input type='number' step='1' inputmode='numeric' value='${isFinite(r.cost)?Math.round(r.cost):''}'>`; 
     fields.appendChild(fCost);
 
     const fW2 = document.createElement('div'); fW2.className='field';
-    fW2.innerHTML = `<div class='label'>ราคา W2</div><div class='val' id='W2_${r.size}'>${fmt0(r.w2)}</div>`;
+    fW2.innerHTML = `<div class='label'>ราคา W2</div><div class='val' id='W2_${r.size}'>${fmt0(r.w2)}</div>`; 
     fields.appendChild(fW2);
 
     const fPW2 = document.createElement('div'); fPW2.className='field';
-    fPW2.innerHTML = `<div class='label'>กำไร/กก. (W2)</div><div class='val' id='PW2_${r.size}'>${fmt0(r.pW2)}</div>`;
+    fPW2.innerHTML = `<div class='label'>กำไร/กก. (W2)</div><div class='val' id='PW2_${r.size}'>${fmt0(r.pW2)}</div>`; 
     fields.appendChild(fPW2);
 
     const fBid = document.createElement('div'); fBid.className='field';
-    fBid.innerHTML = `<div class='label'>ราคา Bidding</div><input type='tel' inputmode='numeric' pattern='[0-9]*' value='${Number.isFinite(r.bid)?Math.round(r.bid):''}'>`;
+    fBid.innerHTML = `<div class='label'>ราคา Bidding</div><input type='number' step='1' inputmode='numeric' value='${isFinite(r.bid)?Math.round(r.bid):''}'>`; 
     fields.appendChild(fBid);
 
     const fPBid = document.createElement('div'); fPBid.className='field';
-    fPBid.innerHTML = `<div class='label'>กำไร/กก. (Bidding)</div><div class='val' id='PBID_${r.size}'>${fmt0(r.pBid)}</div>`;
+    fPBid.innerHTML = `<div class='label'>กำไร/กก. (Bidding)</div><div class='val' id='PBID_${r.size}'>${fmt0(r.pBid)}</div>`; 
     fields.appendChild(fPBid);
 
     card.appendChild(fields);
 
-    const costInput = fCost.querySelector('input');
-    const bidInput  = fBid.querySelector('input');
-    const w2El      = card.querySelector('#W2_'+r.size);
-    const pw2El     = card.querySelector('#PW2_'+r.size);
-    const pBidEl    = card.querySelector('#PBID_'+r.size);
+    const cInput = fCost.querySelector('input');
+    const bInput = fBid.querySelector('input');
 
-    ['input','change','keyup','blur'].forEach(ev=>{
-      costInput.addEventListener(ev, ()=>{
-        if(costInput.value===''){ delete costs[cfg.size]; } else { costs[cfg.size]=toNum0(costInput.value); }
-        localStorage.setItem(KEY_COSTS, JSON.stringify(costs));
-        const rr = calc(cfg);
-        w2El.textContent  = fmt0(rr.w2);
-        pw2El.textContent = fmt0(rr.pW2);
-        pBidEl.textContent= fmt0(rr.pBid);
-        profitEl.textContent = fmt0(rr.pBid);
-        const color = Number.isFinite(rr.pBid)? (rr.pBid>=0?'var(--good)':'var(--bad)') : '#64748b';
-        pBidEl.style.color = color; profitEl.style.color = color;
-        buildTable(); // sync desktop
-      });
+    cInput.addEventListener('input',()=>{
+      if(cInput.value===''){ delete costs[r.size]; } else { costs[r.size]=toNum0(cInput.value); }
+      localStorage.setItem(KEY_COSTS, JSON.stringify(costs));
+      const rr = calc(bySize.get(r.size));
+      card.querySelector('#W2_'+r.size).textContent = fmt0(rr.w2);
+      card.querySelector('#PW2_'+r.size).textContent = fmt0(rr.pW2);
+      const pEl = card.querySelector('#PBID_'+r.size);
+      pEl.textContent = fmt0(rr.pBid);
+      profitEl.textContent = fmt0(rr.pBid);
+      const color = isFinite(rr.pBid)? (rr.pBid>=0?'var(--good)':'var(--bad)') : '#4b5563';
+      pEl.style.color = color; profitEl.style.color = color;
+      buildTable(); // sync desktop view
+    });
 
-      bidInput.addEventListener(ev, ()=>{
-        if(bidInput.value===''){ delete bids[cfg.size]; } else { bids[cfg.size]=toNum0(bidInput.value); }
-        localStorage.setItem(KEY_BIDS, JSON.stringify(bids));
-        const rr = calc(cfg);
-        pBidEl.textContent = fmt0(rr.pBid);
-        profitEl.textContent = fmt0(rr.pBid);
-        const color = Number.isFinite(rr.pBid)? (rr.pBid>=0?'var(--good)':'var(--bad)') : '#64748b';
-        pBidEl.style.color = color; profitEl.style.color = color;
-        buildTable(); // sync desktop
-      });
+    bInput.addEventListener('input',()=>{
+      if(bInput.value===''){ delete bids[r.size]; } else { bids[r.size]=toNum0(bInput.value); }
+      localStorage.setItem(KEY_BIDS, JSON.stringify(bids));
+      const rr = calc(bySize.get(r.size));
+      const pEl = card.querySelector('#PBID_'+r.size);
+      pEl.textContent = fmt0(rr.pBid);
+      profitEl.textContent = fmt0(rr.pBid);
+      const color = isFinite(rr.pBid)? (rr.pBid>=0?'var(--good)':'var(--bad)') : '#4b5563';
+      pEl.style.color = color; profitEl.style.color = color;
+      buildTable(); // sync desktop view
     });
 
     wrap.appendChild(card);
   });
 }
 
-/* =========================
-   SYNC
-   ========================= */
+/** ====== SYNC CARD FROM TABLE ====== */
 function updateCard(r){
-  const id = 'card_'+r.size.replace(/\s+/g,'_'); const card = document.getElementById(id); if(!card) return;
+  const id = 'card_'+r.size.replace(/\s+/g,'_');
+  const card = document.getElementById(id);
+  if(!card) return;
   const w2El = card.querySelector('#W2_'+r.size);
-  const pw2El= card.querySelector('#PW2_'+r.size);
-  const pEl  = card.querySelector('#PBID_'+r.size);
+  const pw2El = card.querySelector('#PW2_'+r.size);
+  const pEl = card.querySelector('#PBID_'+r.size);
   const profitEl = card.querySelector('.profit');
   if(w2El) w2El.textContent = fmt0(r.w2);
-  if(pw2El) pw2El.textContent= fmt0(r.pW2);
-  if(pEl){ pEl.textContent = fmt0(r.pBid); pEl.style.color = Number.isFinite(r.pBid)? (r.pBid>=0?'var(--good)':'var(--bad)') : '#64748b'; }
-  if(profitEl){ profitEl.textContent = fmt0(r.pBid); profitEl.style.color = Number.isFinite(r.pBid)? (r.pBid>=0?'var(--good)':'var(--bad)') : '#64748b'; }
+  if(pw2El) pw2El.textContent = fmt0(r.pW2);
+  if(pEl){ pEl.textContent = fmt0(r.pBid); pEl.style.color = isFinite(r.pBid)? (r.pBid>=0?'var(--good)':'var(--bad)') : '#4b5563'; }
+  if(profitEl){ profitEl.textContent = fmt0(r.pBid); profitEl.style.color = isFinite(r.pBid)? (r.pBid>=0?'var(--good)':'var(--bad)') : '#4b5563'; }
 }
 
-/* =========================
-   EXPORT / RESET
-   ========================= */
+/** ====== EXPORT CSV (จำนวนเต็ม) ====== */
 function exportCSV(){
   const rows = [['Size','ราคาทุน','ราคา W2','กำไร/กก. (W2)','ราคา Bidding','กำไร/กก. (Bidding)']];
   DATA.config.sizes.forEach(cfg=>{
     const r = calc(cfg);
-    rows.push([r.size, Number.isFinite(r.cost)?Math.round(r.cost):'', Math.round(r.w2||0), Math.round(r.pW2||0), Number.isFinite(r.bid)?Math.round(r.bid):'', Number.isFinite(r.pBid)?Math.round(r.pBid):'']);
+    rows.push([r.size, isFinite(r.cost)?Math.round(r.cost):'', Math.round(r.w2), Math.round(r.pW2), isFinite(r.bid)?Math.round(r.bid):'', isFinite(r.pBid)?Math.round(r.pBid):'']);
   });
   const csv = rows.map(r=>r.join(',')).join('\n');
   const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
   const url = URL.createObjectURL(blob);
-  const a=document.createElement('a'); a.href=url; a.download='shrimp_bidding.csv'; a.click(); URL.revokeObjectURL(url);
+  const a=document.createElement('a'); a.href=url; a.download='shrimp_bidding_nodecimals.csv'; a.click(); URL.revokeObjectURL(url);
 }
+
+/** ====== RESET ====== */
 function resetAll(){
   if(confirm('ล้างค่าที่บันทึกทั้งหมด?')){
     localStorage.removeItem(KEY_COSTS); localStorage.removeItem(KEY_BIDS);
@@ -415,90 +270,25 @@ function resetAll(){
   }
 }
 
-/* =========================
-   IMPORT Excel/CSV (Admin only)
-   ========================= */
-function parseFile(){
-  const file = document.getElementById('fileInput').files[0];
-  if(!file){ alert('โปรดเลือกไฟล์ .xlsx/.xls/.csv ก่อน'); return; }
-  const ext = (file.name.split('.').pop() || '').toLowerCase();
-  const reader = new FileReader();
-
-  if(ext === 'csv'){
-    reader.onload = e => parseCSVText(e.target.result);
-    reader.readAsText(file, 'utf-8');
-  }else{
-    reader.onload = e => {
-      const data = new Uint8Array(e.target.result);
-      const wb = XLSX.read(data, {type:'array', cellText:false, cellDates:true});
-      const sheet = wb.Sheets[wb.SheetNames[0]];
-      const rows = XLSX.utils.sheet_to_json(sheet, {header:1, defval:''});
-      parseArrayRows(rows);
-    };
-    reader.readAsArrayBuffer(file);
-  }
-}
-function parseCSVText(text){
-  const lines = text.split(/\r?\n/).filter(x=>x.trim().length>0);
-  const rows = lines.map(line => line.split(',').map(s=>s.trim()));
-  parseArrayRows(rows);
-}
-function normalizeHeader(h){ return (h||'').replace(/\r?\n/g,' ').trim(); }
-function parseArrayRows(rows){
-  if(!rows || rows.length<2){ alert('ไฟล์ไม่มีข้อมูลเพียงพอ'); return; }
-  const headers = rows[0].map(normalizeHeader);
-  const idx = {
-    size: headers.findIndex(h => h==='Size'),
-    cost: headers.findIndex(h => h==='ราคาทุน'),
-    sga : headers.findIndex(h => h==='SG&A + LG' || h==='SG&A+LG'),
-    mw2 : headers.findIndex(h => h==='Margin W2'),
-    bid : headers.findIndex(h => h==='ราคา Bidding')
-  };
-  if(idx.size===-1){ alert('ไม่พบคอลัมน์ Size'); return; }
-
-  const map = new Map(DATA.config.sizes.map(s=>[s.size,s]));
-  const sizes = [];
-  for(let i=1;i<rows.length;i++){
-    const row = rows[i];
-    const size = String(row[idx.size]||'').trim();
-    if(!size || !/^STD/i.test(size)) continue;
-
-    const sga  = (idx.sga>-1)? parseFloat(String(row[idx.sga]||'').replace(/,/g,'')) : undefined;
-    const mw2  = (idx.mw2>-1)? parseFloat(String(row[idx.mw2]||'').replace(/,/g,'')) : undefined;
-    const cost = (idx.cost>-1)? parseFloat(String(row[idx.cost]||'').replace(/,/g,'')) : undefined;
-    const bid  = (idx.bid>-1)?  parseFloat(String(row[idx.bid]||'').replace(/,/g,''))  : undefined;
-
-    const prev = map.get(size) || {};
-    sizes.push({
-      size,
-      sga_lg   : Number.isFinite(sga)? sga : prev.sga_lg ?? 0,
-      margin_w2: Number.isFinite(mw2)? mw2 : prev.margin_w2 ?? 0,
-      last_cost: Number.isFinite(cost)?cost: prev.last_cost,
-      last_bid : Number.isFinite(bid) ?bid : prev.last_bid
-    });
-  }
-  DATA.config.sizes = sizes;
-  buildTable(); buildCards();
-  alert('นำเข้าข้อมูลสำเร็จ: ' + sizes.length + ' ไซซ์');
+/** ====== SORT CARDS BY PROFIT (BIDDING) DESC ====== */
+function sortCards(){
+  const rows = DATA.config.sizes.map(cfg=>calc(cfg)).sort((a,b)=>{
+    const ax = isFinite(a.pBid)?a.pBid:-1e12; const bx = isFinite(b.pBid)?b.pBid:-1e12; return bx-ax;
+  });
+  const wrap = document.getElementById('cards');
+  const newOrder = [];
+  rows.forEach(r=>{ const el = document.getElementById('card_'+r.size.replace(/\s+/g,'_')); if(el) newOrder.push(el); });
+  wrap.innerHTML=''; newOrder.forEach(el=>wrap.appendChild(el));
 }
 
-/* =========================
-   INIT
-   ========================= */
+/** ====== INIT ====== */
 document.getElementById('exportCSV').addEventListener('click', exportCSV);
 document.getElementById('resetAll').addEventListener('click', resetAll);
-if(isAdmin){
-  document.getElementById('parseFile').addEventListener('click', parseFile);
-  document.getElementById('clearState').addEventListener('click', ()=>{
-    if(confirm('ล้างข้อมูลที่บันทึก (ราคาทุน/ราคา Bidding) ทั้งหมด?')){
-      localStorage.removeItem(KEY_COSTS); localStorage.removeItem(KEY_BIDS);
-      costs={}; bids={}; buildTable(); buildCards();
-    }
-  });
-}
+document.getElementById('sortCards').addEventListener('click', sortCards);
 
 buildTable();
 buildCards();
 </script>
 </body>
 </html>
+  <footer>Created by Anenger Shrimp UNO</footer>
